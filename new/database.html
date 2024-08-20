@@ -205,10 +205,15 @@
             const row = table.insertRow();
             headers.forEach((header, index) => {
                 const cell = row.insertCell();
-                let value = item[header] || '';
+                let value = item[header];
+
+                // If the value is null or undefined, replace it with an empty string
+                if (value == null) {
+                    value = '';
+                }
 
                 // Apply formatting only if this is the 'tmuta14Table' and the fourth field (index 4)
-                if (tableId === 'tmuta14Table' && index === 4) {
+                if (tableId === 'tmuta14Table' && index === 4 && value !== '') {
                     value = parseFloat(value).toFixed(3) + ' %';
                 }
 
@@ -216,6 +221,7 @@
             });
         });
     }
+
 
     // Export tables to Excel
     function exportTablesToExcel() {
