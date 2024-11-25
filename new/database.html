@@ -144,12 +144,13 @@
             // Add header row with predefined Hebrew headers
             const headerRow = table.insertRow(0);
             const headers = [
-                'יום גידול',          // Day of Growth
-                'ממוצע מעורב',       // Mixed Average
-                'ממוצע אחוז מעורב',  // Mixed Percentage Average
-                'מבנה',              // Structure
-                'מדגר',              // Hatchery
-                'שם חווה'           // Farm Name
+                'שם חווה',          // Day of Growth
+                'מבנה',       // Mixed Average
+                'יום גידול',  // Mixed Percentage Average
+                'ממוצע מעורב',              // Structure
+                'ממוצע אחוז מעורב',              // Hatchery
+                       // Farm Name
+                'להקת אם'
             ];
 
             // Add headers to the header row
@@ -165,7 +166,7 @@
                 Object.values(item).forEach((value, index) => {
                     const cell = row.insertCell();
                     // Check if this is the "Mixed Percentage Average" column
-                    if (index === 2) { // Assuming the third column is the "Mixed Percentage Average"
+                    if (index === 4) { // Assuming the third column is the "Mixed Percentage Average"
                         const formattedValue = parseFloat(value).toFixed(3) + ' %';
                         cell.textContent = formattedValue;
                     } else {

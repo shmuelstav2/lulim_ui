@@ -1,4 +1,8 @@
 const express = require('express');
+const cors = require('cors');
+
+
+
 const session = require('express-session');
 const bodyParser = require('body-parser');
 const { MongoClient } = require('mongodb');
@@ -6,7 +10,7 @@ const path = require('path');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
+app.use(cors()); // Allow all origins
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(session({ secret: 'your-secret-key', resave: true, saveUninitialized: true }));
 
