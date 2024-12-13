@@ -68,11 +68,55 @@ app.post('/login', async (req, res) => {
         return res.redirect('/new/error.html');
     }
 });
-
+app.get('/sikumim', (req, res) => {
+    console.log('GET request received at /sikumim');
+    try {
+        const filePath = path.join(__dirname, 'new/summary.html');
+        console.log('Sending file:', filePath);
+        return res.sendFile(filePath);
+    } catch (err) {
+        console.error('Error serving summary.html:', err);
+        return res.status(500).send('Internal Server Error');
+    }
+});
 app.get('/api/tmuta', async (req, res) => {
     const mongoUri = 'mongodb://localhost:27017/';
     const dbName = 'lulim';
     const collectionName = 'tmuta_end';
+
+    const client = new MongoClient(mongoUri, { useNewUrlParser: true, useUnifiedTopology: true });
+    try {
+
+        await client.connect();
+        const db = client.db(dbName);
+        const collection = db.collection(collectionName);
+
+        // Fetch data from MongoDB excluding _id field
+        const mongoData = await collection.find({}, { projection: { _id: 0 } }).toArray();
+
+        // Format the date as dd/mm/yyyy
+        const formattedData = mongoData.map(item => {
+            if (item.date instanceof Date) {
+                item.date = item.date.toLocaleDateString('en-GB');  // Use 'en-GB' for dd/mm/yyyy format
+            }
+            return item;
+        });
+
+        res.json(formattedData); // Return the data as JSON in the response
+    } catch (error) {
+        console.error('Error connecting to MongoDB:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    } finally {
+        // Close MongoDB connection
+        client.close();
+    }
+});
+
+app.get('/api/sikumim', async (req, res) => {
+    console.log("api sikumim");
+    const mongoUri = 'mongodb://localhost:27017/';
+    const dbName = 'lulim_new';
+    const collectionName = 'sikum_midgar';
 
     const client = new MongoClient(mongoUri, { useNewUrlParser: true, useUnifiedTopology: true });
     try {

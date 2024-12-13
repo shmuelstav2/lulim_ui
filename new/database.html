@@ -110,13 +110,20 @@
     <button class="export-button" onclick="exportTablesToExcel()">
         <i class="fas fa-file-excel"></i> יצא לאקסל
     </button>
+
+    <!-- Add "סיכומים" button at the bottom -->
+    <div style="text-align: center; margin-top: 20px;">
+        <button class="export-button" onclick="window.location.href='/sikumim'">
+            סיכומים
+        </button>
+    </div>
 </div>
 
 <script>
     // Determine the base URL based on the environment
     const isLocal = window.location.hostname === 'localhost';
     const baseURL = isLocal ? 'http://localhost:3000' : 'https://fandy.cloud';
-    //check git
+
     // Fetch data and populate the tables
     fetch(`${baseURL}/api/tmuta`)
         .then(response => response.json())
@@ -137,38 +144,23 @@
         .then(response => response.json())
         .then(data => {
             const table = document.getElementById('skilaTable');
-
-            // Clear the existing table content (optional, if the table already has content)
             table.innerHTML = '';
 
-            // Add header row with predefined Hebrew headers
             const headerRow = table.insertRow(0);
-            const headers = [
-                'שם חווה',          // Day of Growth
-                'מבנה',       // Mixed Average
-                'יום גידול',  // Mixed Percentage Average
-                'ממוצע מעורב',              // Structure
-                'ממוצע אחוז מעורב',              // Hatchery
-                       // Farm Name
-                'להקת אם'
-            ];
+            const headers = ['שם חווה', 'מבנה', 'יום גידול', 'ממוצע מעורב', 'ממוצע אחוז מעורב', 'להקת אם'];
 
-            // Add headers to the header row
             headers.forEach(header => {
                 const th = document.createElement('th');
                 th.textContent = header;
                 headerRow.appendChild(th);
             });
 
-            // Add data rows
             data.forEach(item => {
                 const row = table.insertRow();
                 Object.values(item).forEach((value, index) => {
                     const cell = row.insertCell();
-                    // Check if this is the "Mixed Percentage Average" column
-                    if (index === 4) { // Assuming the third column is the "Mixed Percentage Average"
-                        const formattedValue = parseFloat(value).toFixed(3) + ' %';
-                        cell.textContent = formattedValue;
+                    if (index === 4) {
+                        cell.textContent = parseFloat(value).toFixed(3) + ' %';
                     } else {
                         cell.textContent = value;
                     }
@@ -182,18 +174,11 @@
         .then(data => populateTable('tmuta14Table', data))
         .catch(error => console.error('Error fetching data:', error));
 
-    // Populate table with data
     function populateTable(tableId, data, headers = null) {
         const table = document.getElementById(tableId);
-
-        // Clear the existing table content (optional, if the table already has content)
         table.innerHTML = '';
-
-        // Add header row
         const headerRow = table.insertRow(0);
-        if (!headers) {
-            headers = Object.keys(data[0]);
-        }
+        if (!headers) headers = Object.keys(data[0]);
 
         headers.forEach(header => {
             const th = document.createElement('th');
@@ -201,52 +186,35 @@
             headerRow.appendChild(th);
         });
 
-        // Add data rows
         data.forEach(item => {
             const row = table.insertRow();
             headers.forEach((header, index) => {
                 const cell = row.insertCell();
-                let value = item[header];
-
-                // If the value is null or undefined, replace it with an empty string
-                if (value == null) {
-                    value = '';
-                }
-
-                // Apply formatting only if this is the 'tmuta14Table' and the fourth field (index 4)
+                let value = item[header] || '';
                 if (tableId === 'tmuta14Table' && index === 4 && value !== '') {
                     value = parseFloat(value).toFixed(3) + ' %';
                 }
-
                 cell.textContent = value;
             });
         });
     }
 
-
-    // Export tables to Excel
     function exportTablesToExcel() {
         const workbook = XLSX.utils.book_new();
-
-        // Add each table to the workbook
         addTableToWorkbook('tmutaTable', 'תמותה', workbook);
         addTableToWorkbook('marketingTable', 'שיווק', workbook);
         addTableToWorkbook('notruTable', 'נותרו לשיווק', workbook);
         addTableToWorkbook('skilaTable', 'שקילה שבועית', workbook);
         addTableToWorkbook('tmuta14Table', 'תמותה 14 יום', workbook);
-
-        // Write the workbook and download it
         XLSX.writeFile(workbook, 'Tables.xlsx');
     }
 
-    // Add a table to the workbook
     function addTableToWorkbook(tableId, sheetName, workbook) {
         const table = document.getElementById(tableId);
         const worksheet = XLSX.utils.table_to_sheet(table);
         XLSX.utils.book_append_sheet(workbook, worksheet, sheetName);
     }
 </script>
-
 </body>
 </html>
 
