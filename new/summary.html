@@ -52,7 +52,7 @@
             border: 1px solid #ddd;
             padding: 8px;
             text-align: center;
-            width: 12.5%; /* Equal column width */
+            width: 8%; /* Adjusted for more columns */
         }
 
         th {
@@ -165,6 +165,21 @@
             <th>אחוז תמותה (14 ימים) <button class="filter-btn" onclick="toggleDropdown(event)">▼</button>
                 <div class="dropdown" data-column="7"></div>
             </th>
+            <th>כמות משווקת <button class="filter-btn" onclick="toggleDropdown(event)">▼</button>
+                <div class="dropdown" data-column="8"></div>
+            </th>
+            <th>משקל כולל <button class="filter-btn" onclick="toggleDropdown(event)">▼</button>
+                <div class="dropdown" data-column="9"></div>
+            </th>
+            <th>משקל שיווק <button class="filter-btn" onclick="toggleDropdown(event)">▼</button>
+                <div class="dropdown" data-column="10"></div>
+            </th>
+            <th>משקל מסוכן <button class="filter-btn" onclick="toggleDropdown(event)">▼</button>
+                <div class="dropdown" data-column="11"></div>
+            </th>
+            <th>נזילות מזון <button class="filter-btn" onclick="toggleDropdown(event)">▼</button>
+                <div class="dropdown" data-column="12"></div>
+            </th>
         </tr>
         </thead>
         <tbody></tbody>
@@ -199,15 +214,20 @@
         data.forEach(item => {
             const row = document.createElement('tr');
             row.innerHTML = `
-                    <td>${item.farm_name}</td>
-                    <td>${item.new_flock}</td>
-                    <td>${item.begin_date}</td>
-                    <td>${item.status}</td>
-                    <td>${item.end_date || 'N/A'}</td>
-                    <td>${item.begin_quantity}</td>
-                    <td>${item.mortality14}</td>
-                    <td>${item.percent14_tmuta}%</td>
-                `;
+                <td>${item.farm_name}</td>
+                <td>${item.new_flock}</td>
+                <td>${item.begin_date}</td>
+                <td>${item.status}</td>
+                <td>${item.end_date || 'N/A'}</td>
+                <td>${item.begin_quantity}</td>
+                <td>${item.mortality14}</td>
+                <td>${item.percent14_tmuta}%</td>
+                <td>${item.marketed_quantity || 'N/A'}</td>
+                <td>${item.total_weight || 'N/A'}</td>
+                <td>${item.marketing_weight || 'N/A'}</td>
+                <td>${item.mesukan_weight || 'N/A'}</td>
+                <td>${item.nezilut_mazon || 'N/A'}</td>
+            `;
             tbody.appendChild(row);
         });
     }
@@ -220,8 +240,8 @@
 
             const uniqueValues = [...new Set(data.map(row => Object.values(row)[index]))];
             dropdown.innerHTML = uniqueValues.map(value => `
-                    <label><input type="checkbox" value="${value}" onchange="filterTable()"> ${value}</label>
-                `).join('');
+                <label><input type="checkbox" value="${value}" onchange="filterTable()"> ${value}</label>
+            `).join('');
         });
     }
 
