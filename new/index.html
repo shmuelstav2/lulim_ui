@@ -1,75 +1,185 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="he" dir="rtl">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title></title>
-    <!-- link for css  -->
-    <link rel="stylesheet" href="css/style.css">
-    <!-- code for favicons  -->
-    <link rel="shortcut icon" href="images/logo.png" type="image/x-icon">
-    <!-- link for font awosemo  -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="sha512-DTOQO9RWCH3ppGqcWaEA1BIZOC6xxalwEsw9c2QQeAIftl+Vegovlnee1c9QX4TctnWMn13TZye+giMm8e2LwA==" crossorigin="anonymous" referrerpolicy="no-referrer" />
-    <script>
-        function loginUser() {
-            // Get the username and password from the input fields
-            var username = document.querySelector('.user-input input').value;
-            var password = document.querySelector('.password-input input').value;
-
-            // Create a form dynamically
-            var form = document.createElement('form');
-            form.action = '/login';
-            form.method = 'post';
-
-            // Create input fields for username and password
-            var usernameInput = document.createElement('input');
-            usernameInput.type = 'hidden';
-            usernameInput.name = 'username';
-            usernameInput.value = username;
-
-            var passwordInput = document.createElement('input');
-            passwordInput.type = 'hidden';
-            passwordInput.name = 'password';
-            passwordInput.value = password;
-
-            // Append input fields to the form
-            form.appendChild(usernameInput);
-            form.appendChild(passwordInput);
-
-            // Append the form to the document body and submit it
-            document.body.appendChild(form);
-            form.submit();
+    <title>Login Page</title>
+    <style>
+        /* General Reset */
+        body {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+            background: url('new/images/back.jpeg') no-repeat center center fixed;
+            background-size: cover;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
         }
-    </script>
+
+        /* Overlay for readability */
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.4); /* White with transparency */
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* Container Styles */
+        .container {
+            background: #ffffff;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 450px;
+            text-align: center;
+            position: relative;
+            z-index: 1; /* Above overlay */
+        }
+
+        /* Logo Styles */
+        .logo {
+            margin-bottom: 30px;
+        }
+
+        .logo img {
+            width: 150px;
+            height: auto;
+        }
+
+        /* Form Styles */
+        form {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        label {
+            font-size: 14px;
+            font-weight: bold;
+            color: #333;
+            text-align: right;
+        }
+
+        input {
+            padding: 12px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 14px;
+            width: 100%;
+            text-align: right; /* Align text for RTL */
+        }
+
+        button {
+            padding: 12px;
+            background-color: #4a7b2b;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        button:hover {
+            background-color: #3a6b1b;
+        }
+
+        .error {
+            color: red;
+            font-size: 14px;
+            text-align: center;
+        }
+
+    </style>
 </head>
 <body>
-<div class="container">
-    <div class="logo-box logo">
-        <a href="index.html">
-            <img src="images/logo-1.png" alt="" class="img-fluid">
-        </a>
+<div class="overlay">
+    <div class="container">
+        <!-- Logo Section -->
+        <div class="logo">
+            <img src="/new/images/logo.png" alt="Logo">
+        </div>
+
+        <!-- Login Form -->
+        <form id="loginForm">
+            <div class="error" id="errorMessage" style="display: none;"></div>
+
+            <div>
+                <label for="username">שם משתמש</label>
+                <input type="text" id="username" name="username" placeholder="הכנס שם משתמש" aria-label="שם משתמש" required>
+            </div>
+
+            <div>
+                <label for="password">סיסמא</label>
+                <input type="password" id="password" name="password" placeholder="הכנס סיסמא" aria-label="סיסמא" required>
+            </div>
+
+            <button type="submit">התחבר</button>
+        </form>
     </div>
-    <div class="row">
-        <div class="col-1">
-            <div class="user-input box">
-                <input type="text" placeholder="שם משתמש">
-                <img src="images/user.png" alt="" class="img-fluid logo-img">
-            </div>
-        </div>
-        <div class="col-1">
-            <div class="password-input box">
-                <input type="password" placeholder="סיסמה">
-                <img src="images/key.png" alt="" class="img-fluid logo-img">
-            </div>
-        </div>
-    </div>
-    <form action="/login" method="post">
-        <div class="btn-row">
-            <div class="btn">
-                <a href="javascript:void(0);" onclick="loginUser()">התחבר</a>
-            </div>
-        </div>
-    </form>
 </div>
+
+<script>
+    document.getElementById('loginForm').addEventListener('submit', function (e) {
+        e.preventDefault(); // Prevent default form submission
+
+        // Get form values
+        const username = document.getElementById('username').value.trim();
+        const password = document.getElementById('password').value.trim();
+        const errorMessage = document.getElementById('errorMessage');
+
+        // Clear previous error messages
+        errorMessage.style.display = 'none';
+        errorMessage.textContent = '';
+
+        // Validate input
+        if (!username || !password) {
+            errorMessage.style.display = 'block';
+            errorMessage.textContent = 'יש למלא את כל השדות.';
+            return;
+        }
+
+        // Send login request to the server
+        fetch('/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ username, password }),
+        })
+            .then(response => {
+                if (response.redirected) {
+                    // Redirect if server sends a redirect
+                    window.location.href = response.url;
+                } else if (response.ok) {
+                    // Successful login
+                    return response.text().then(html => {
+                        //document.documentElement.innerHTML = html;// Replace current page content
+                        window.location.href = '/new/database.html';
+
+
+                    });
+                } else {
+                    // Failed login
+                    return response.text().then(err => {
+                        throw new Error(err || 'התחברות נכשלה. נסה שוב.');
+                    });
+                }
+            })
+            .catch(error => {
+                errorMessage.style.display = 'block';
+                errorMessage.textContent = error.message;
+            });
+    });
+</script>
 </body>
 </html>
