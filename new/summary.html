@@ -71,7 +71,7 @@
             font-size: 14px;
         }
 
-        .dropdown-content input[type="checkbox"] {
+        .dropdown-content input {
             margin-right: 5px;
         }
 
@@ -150,6 +150,17 @@
         <div class="dropdown-content" id="statusFilterGroup">
             <label><input type="checkbox" value="closed" checked> סגור</label>
             <label><input type="checkbox" value="open"> פתוח</label>
+        </div>
+    </div>
+    <div class="dropdown">
+        <button>תאריך התחלה</button>
+        <div class="dropdown-content">
+            <label>
+                מ: <input type="date" id="startDateFilter" onchange="applyFilters()">
+            </label>
+            <label>
+                עד: <input type="date" id="endDateFilter" onchange="applyFilters()">
+            </label>
         </div>
     </div>
 </div>
@@ -246,12 +257,19 @@
         const selectedFlockNumbers = Array.from(document.querySelectorAll('#flockNumberFilterGroup input:checked')).map(input => input.value);
         const selectedStatuses = Array.from(document.querySelectorAll('#statusFilterGroup input:checked')).map(input => input.value);
 
+        const startDate = document.getElementById('startDateFilter').value;
+        const endDate = document.getElementById('endDateFilter').value;
+
         const filteredData = originalData.filter(item => {
             const matchesFarm = selectedFarmNames.length === 0 || selectedFarmNames.includes(item.farm_name);
-            const matchesFlock = selectedFlockNumbers.length === 0 || selectedFlockNumbers.includes(String(item.new_flock)); // Ensure flock number matches as string
-            const matchesStatus = selectedStatuses.includes(item.status); // Updated logic
+            const matchesFlock = selectedFlockNumbers.length === 0 || selectedFlockNumbers.includes(String(item.new_flock));
+            const matchesStatus = selectedStatuses.includes(item.status);
 
-            return matchesFarm && matchesFlock && matchesStatus;
+            const itemDate = new Date(item.begin_date);
+            const matchesDate = (!startDate || itemDate >= new Date(startDate)) &&
+                (!endDate || itemDate <= new Date(endDate));
+
+            return matchesFarm && matchesFlock && matchesStatus && matchesDate;
         });
 
         populateTable(filteredData);
@@ -283,3 +301,4 @@
 </script>
 </body>
 </html>
+
