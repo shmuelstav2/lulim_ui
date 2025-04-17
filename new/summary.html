@@ -192,14 +192,15 @@
         </div>
     </div>-->
 
+
     <div class="dropdown">
         <button class="uniform-button">תאריך התחלה</button>
         <div class="dropdown-content">
             <label>
-                מ: <input type="date" id="startDateFilter" onchange="applyFilters()">
+                מ: <input type="date" id="startDateFilter" onchange="updateFilters()">
             </label>
             <label>
-                עד: <input type="date" id="endDateFilter" onchange="applyFilters()">
+                עד: <input type="date" id="endDateFilter" onchange="updateFilters()">
             </label>
         </div>
     </div>
@@ -207,13 +208,19 @@
         <button class="uniform-button">תאריך סיום</button>
         <div class="dropdown-content">
             <label>
-                מ: <input type="date" id="startDateEndFilter" onchange="applyFilters()">
+                מ: <input type="date" id="startDateEndFilter" onchange="updateFilters()">
             </label>
             <label>
-                עד: <input type="date" id="endDateEndFilter" onchange="applyFilters()">
+                עד: <input type="date" id="endDateEndFilter" onchange="updateFilters()">
             </label>
         </div>
     </div>
+    <div class="dropdown">
+        <button class="uniform-button" onclick="exportToExcel()" style="background-color: #28a745; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer;">
+            יצא לאקסל - סיכומים 2025
+        </button>
+    </div>
+
 </div>
 
 <!-- Table Section -->
@@ -239,7 +246,7 @@
         </thead>
         <tbody></tbody>
     </table>
-    <button class="export-btn" onclick="exportToExcel()">יצא לאקסל</button>
+    <!--<button class="export-btn" onclick="exportToExcel()">יצא לאקסל</button>-->
     <!--<button class="export-btn" onclick="transposeTable()">הפוך טבלה</button>-->
 </div>
 
@@ -333,33 +340,93 @@
 
     // הצגת הטבלה ב-DOM
     function populateTable(data) {
-        const table = document.getElementById('dataTable');
-        const tbody = table.querySelector('tbody');
-        if (!tbody) {
-            console.error("Table tbody not found");
+        console.log("➡️ populateTable() called");
+        console.log("📦 Data received:", data);
+
+        const tableWrapper = document.querySelector('.table-wrapper');
+        console.log("📦 tableWrapper found:", tableWrapper);
+
+        if (!tableWrapper) {
+            console.error("❌ .table-wrapper div not found in DOM!");
             return;
         }
-        tbody.innerHTML = '';
 
-        data.forEach(item => {
+        const oldTable = document.getElementById('dataTable');
+        console.log("📦 Existing table found:", oldTable);
+
+        if (oldTable) {
+            console.log("🗑️ Removing existing table from DOM");
+            oldTable.remove();
+        }
+
+        const table = document.createElement('table');
+        table.id = 'dataTable';
+        table.style.display = 'none';
+        console.log("🆕 Created new table element:", table);
+
+        const thead = document.createElement('thead');
+        thead.innerHTML = `
+    <tr>
+      <th>שם חווה</th>
+      <th>מספר מדגר</th>
+      <th>תאריך התחלה</th>
+      <th>תאריך סיום</th>
+      <th>כמות התחלתית</th>
+      <th>תמותה (14 ימים)</th>
+      <th>אחוז תמותה (14 ימים)</th>
+      <th>כמות משווקת</th>
+      <th>משקל כולל</th>
+      <th>משקל שיווק</th>
+      <th>משקל משוכן</th>
+      <th>נצילות מזון</th>
+    </tr>
+  `;
+        table.appendChild(thead);
+        console.log("✅ Added table head");
+
+        const tbody = document.createElement('tbody');
+        table.appendChild(tbody);
+        console.log("✅ Added empty table body");
+
+        tableWrapper.appendChild(table);
+        console.log("📥 Appended new table to tableWrapper");
+
+        if (data.length === 0) {
+            console.warn("⚠️ No data to display — showing loading message");
+            document.getElementById('loading').innerText = 'אין נתונים להצגה';
+            table.style.display = 'none';
+            return;
+        }
+
+        console.log(`📊 Populating table with ${data.length} rows`);
+
+        data.forEach((item, index) => {
+            console.log(`📝 Inserting row ${index + 1}:`, item);
+
             const row = document.createElement('tr');
             row.innerHTML = `
-            <td>${item.farm_name}</td>
-            <td>${item.new_flock}</td>
-            <td>${item.begin_date}</td>
-            <td>${item.end_date || 'N/A'}</td>
-            <td>${item.begin_quantity}</td>
-            <td>${item.mortality14}</td>
-            <td>${item.percent14_tmuta}%</td>
-            <td>${item.marketed_quantity || 'N/A'}</td>
-            <td>${item.total_weight || 'N/A'}</td>
-            <td>${item.marketing_weight || 'N/A'}</td>
-            <td>${item.mesukan_weight || 'N/A'}</td>
-            <td>${item.nezilut_mazon || 'N/A'}</td>
-        `;
+      <td>${item.farm_name}</td>
+      <td>${item.new_flock}</td>
+      <td>${item.begin_date}</td>
+      <td>${item.end_date || 'N/A'}</td>
+      <td>${item.begin_quantity}</td>
+      <td>${item.mortality14}</td>
+      <td>${item.percent14_tmuta}%</td>
+      <td>${item.marketed_quantity || 'N/A'}</td>
+      <td>${item.total_weight || 'N/A'}</td>
+      <td>${item.marketing_weight || 'N/A'}</td>
+      <td>${item.mesukan_weight || 'N/A'}</td>
+      <td>${item.nezilut_mazon || 'N/A'}</td>
+    `;
             tbody.appendChild(row);
         });
+
+        console.log("✅ Finished adding all rows");
+
+        table.style.display = 'table';
+        console.log("🎉 Table display set to visible");
     }
+
 
     // היפוך הטבלה (כמו שביקשת)
     function transposeTable() {
