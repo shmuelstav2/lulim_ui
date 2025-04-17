@@ -4,10 +4,10 @@ const session = require('express-session');
 const bodyParser = require('body-parser');
 const { MongoClient } = require('mongodb');
 const path = require('path');
-
+const generateExcel = require('./excel_file');
 const app = express();
 const PORT = process.env.PORT || 3000;
-
+const axios = require('axios');
 // Middleware
 app.use(cors()); // Allow all origins
 app.use(bodyParser.urlencoded({ extended: true }));
@@ -121,6 +121,40 @@ app.get('/api/sikumim', async (req, res) => {
     const mongoUri = 'mongodb://localhost:27017/';
     const dbName = 'lulim_new';
     const collectionName = 'sikum_midgar';
+
+    const client = new MongoClient(mongoUri, { useNewUrlParser: true, useUnifiedTopology: true });
+    try {
+
+        await client.connect();
+        const db = client.db(dbName);
+        const collection = db.collection(collectionName);
+
+        // Fetch data from MongoDB excluding _id field
+        const mongoData = await collection.find({}, { projection: { _id: 0 } }).toArray();
+
+        // Format the date as dd/mm/yyyy
+        const formattedData = mongoData.map(item => {
+            if (item.date instanceof Date) {
+                item.date = item.date.toLocaleDateString('en-GB');  // Use 'en-GB' for dd/mm/yyyy format
+            }
+            return item;
+        });
+
+        res.json(formattedData); // Return the data as JSON in the response
+    } catch (error) {
+        console.error('Error connecting to MongoDB:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    } finally {
+        // Close MongoDB connection
+        client.close();
+    }
+});
+
+app.get('/api/sikumim2025', async (req, res) => {
+    console.log("api sikumim");
+    const mongoUri = 'mongodb://localhost:27017/';
+    const dbName = 'lulim_new';
+    const collectionName = 'sikum_midgar_summary_2025';
 
     const client = new MongoClient(mongoUri, { useNewUrlParser: true, useUnifiedTopology: true });
     try {
@@ -315,7 +349,36 @@ app.get('/api/tmuta14', async (req, res) => {
         client.close();
     }
 });
+app.get('/api/excel', async (req, res) => {
+    try {
+        // Fetch data from the local sikumim2025 API
+        const response = await axios.get('http://localhost:3000/api/sikumim2025');  // Call the local API
+        const param = response.data;  // Assuming the response contains the data you need
 
+        console.log(`Received data from sikumim2025 API: ${param}`);
+
+        // Call the generateExcel function with the fetched data
+        const workbook = await generateExcel(param);
+
+        // Set the headers to tell the browser this is an Excel file download
+        res.setHeader(
+            'Content-Type',
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        );
+        res.setHeader(
+            'Content-Disposition',
+            'attachment; filename=summary.xlsx'
+        );
+
+        // Write the workbook to the response stream
+        await workbook.xlsx.write(res);
+        res.end();
+        console.log('✅ Excel file generated and sent');
+    } catch (error) {
+        console.error('Error fetching data or generating Excel:', error);
+        res.status(500).send('Error generating Excel file');
+    }
+});
 
 app.listen(PORT, () => {
     console.log(`Server is running on http://localhost:${PORT}`);

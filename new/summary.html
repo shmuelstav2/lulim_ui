@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>סיכומי מדגרים</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -43,13 +44,16 @@
             position: relative;
         }
 
-        .dropdown button {
+        /* מחלקה אחידה לכל הכפתורים */
+        .uniform-button {
             padding: 10px 15px;
             font-size: 14px;
             border: 1px solid #ccc;
             background-color: #fff;
             cursor: pointer;
             border-radius: 5px;
+            width: 180px;
+            text-align: center;
         }
 
         .dropdown-content {
@@ -79,26 +83,33 @@
             display: block;
         }
 
-        .table-container {
-            margin: 20px auto;
-            max-width: 1200px;
+        .table-wrapper {
             overflow-x: auto;
+            margin: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            background-color: #fff;
+            min-width: 800px;
         }
 
         th, td {
-            border: 1px solid #ddd;
-            padding: 10px;
+            border: 1px solid #ccc;
+            padding: 8px 12px;
             text-align: center;
+            white-space: nowrap;
         }
 
         th {
-            background-color: #f4f4f4;
+            background: #eee;
+        }
+
+        th, td {
+            text-align: center;
         }
 
         tr:nth-child(even) {
@@ -125,35 +136,64 @@
             font-size: 18px;
             padding: 20px;
         }
+        .clear-filters-container {
+            margin-right: 20px;
+        }
+
+        .clear-filters-btn {
+            padding: 10px 15px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            background-color: #f44336;  /* צבע אדום */
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+            width: 180px;
+            text-align: center;
+        }
+
+        .clear-filters-btn:hover {
+            background-color: #e53935;  /* שינוי צבע ב-hover */
+        }
+
     </style>
 </head>
 <body>
+
 <div class="header">
     <img src="new/images/logo.png" alt="Company Logo">
 </div>
+
 <div class="main-heading">
     <h1>סיכומי מדגרים</h1>
 </div>
 
 <!-- Filters Section -->
+
 <div class="filter-container">
+    <div class="clear-filters-container">
+        <button class="clear-filters-btn" onclick="clearFilters()">נקה סינונים</button>
+    </div>
+
     <div class="dropdown">
-        <button>שם חווה</button>
+        <button class="uniform-button">שם חווה</button>
         <div class="dropdown-content" id="farmNameFilterGroup"></div>
     </div>
     <div class="dropdown">
-        <button>מספר מדגר</button>
+        <button class="uniform-button">מספר מדגר</button>
         <div class="dropdown-content" id="flockNumberFilterGroup"></div>
     </div>
-    <div class="dropdown">
-        <button>סטטוס</button>
+
+    <!--<div class="dropdown">
+        <button class="uniform-button">נתונים מלאים</button>
         <div class="dropdown-content" id="statusFilterGroup">
-            <label><input type="checkbox" value="closed" checked> סגור</label>
-            <label><input type="checkbox" value="open"> פתוח</label>
+            <label><input type="checkbox" value="closed" checked> מלא</label>
+            <label><input type="checkbox" value="open">לא מלא</label>
         </div>
-    </div>
+    </div>-->
+
     <div class="dropdown">
-        <button>תאריך התחלה</button>
+        <button class="uniform-button">תאריך התחלה</button>
         <div class="dropdown-content">
             <label>
                 מ: <input type="date" id="startDateFilter" onchange="applyFilters()">
@@ -163,10 +203,21 @@
             </label>
         </div>
     </div>
+    <div class="dropdown">
+        <button class="uniform-button">תאריך סיום</button>
+        <div class="dropdown-content">
+            <label>
+                מ: <input type="date" id="startDateEndFilter" onchange="applyFilters()">
+            </label>
+            <label>
+                עד: <input type="date" id="endDateEndFilter" onchange="applyFilters()">
+            </label>
+        </div>
+    </div>
 </div>
 
 <!-- Table Section -->
-<div class="table-container">
+<div class="table-wrapper">
     <div id="loading">Loading data...</div>
     <table id="dataTable" style="display: none;">
         <thead>
@@ -174,7 +225,7 @@
             <th>שם חווה</th>
             <th>מספר מדגר</th>
             <th>תאריך התחלה</th>
-            <th>סטטוס</th>
+            <!--<th>סטטוס</th>-->
             <th>תאריך סיום</th>
             <th>כמות התחלתית</th>
             <th>תמותה (14 ימים)</th>
@@ -189,21 +240,34 @@
         <tbody></tbody>
     </table>
     <button class="export-btn" onclick="exportToExcel()">יצא לאקסל</button>
-    <button class="export-btn" onclick="transposeTable()">הפוך טבלה</button>
+    <!--<button class="export-btn" onclick="transposeTable()">הפוך טבלה</button>-->
 </div>
 
 <script>
     const isLocal = window.location.hostname === 'localhost';
     const baseURL = isLocal ? 'http://localhost:3000' : 'https://fandy.cloud';
-    let originalData = [];
+    let allData = [];
+    let filters = {
+        farmNames: [],
+        flocks: [],
+        startDate: '',
+        endDate: ''
+    };
 
+    // קריאה ראשונית לכל התהליך
+    function beginLoad() {
+        fetchData()
+            .then(() => {
+                startFilters();
+            });
+    }
+
+    // טעינת המידע מה-API
     async function fetchData() {
         try {
             const response = await fetch(`${baseURL}/api/sikumim`);
             const data = await response.json();
-            originalData = data.filter(item => item.status === 'closed');
-            populateTable(originalData);
-            populateFilters(data);
+            allData = data; // אין סינון כאן בכלל
             document.getElementById('loading').style.display = 'none';
             document.getElementById('dataTable').style.display = 'table';
         } catch (error) {
@@ -212,72 +276,97 @@
         }
     }
 
+    // בניית הפילטרים והגדרת ברירות מחדל
+    function startFilters() {
+        const farmNames = [...new Set(allData.map(item => item.farm_name))];
+        const flocks = [...new Set(allData.map(item => item.new_flock))];
+
+        const farmNameGroup = document.getElementById('farmNameFilterGroup');
+        const flockNumberGroup = document.getElementById('flockNumberFilterGroup');
+
+        farmNameGroup.innerHTML = farmNames.map(name => `
+        <label><input type="checkbox" value="${name}" checked onchange="updateFilters()"> ${name}</label>
+    `).join('');
+
+        flockNumberGroup.innerHTML = flocks.map(flock => `
+        <label><input type="checkbox" value="${flock}" checked onchange="updateFilters()"> ${flock}</label>
+    `).join('');
+
+        // תאריך ברירת מחדל
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('startDateFilter').value = '2025-01-01';
+        document.getElementById('endDateFilter').value = today;
+
+        filters.startDate = '2025-01-01';
+        filters.endDate = today;
+
+        updateFilters();
+    }
+
+    // עדכון משתנה הפילטרים והפעלת בניית הטבלה מחדש
+    function updateFilters() {
+        filters.farmNames = Array.from(document.querySelectorAll('#farmNameFilterGroup input:checked')).map(input => input.value);
+        filters.flocks = Array.from(document.querySelectorAll('#flockNumberFilterGroup input:checked')).map(input => input.value);
+        filters.startDate = document.getElementById('startDateFilter').value;
+        filters.endDate = document.getElementById('endDateFilter').value;
+
+        console.log('📝 Filters updated:', filters);
+
+        makeTable();
+    }
+
+    // יצירת הטבלה על פי הפילטרים
+    function makeTable() {
+        const filteredData = allData.filter(item => {
+            const matchesFarm = filters.farmNames.length === 0 || filters.farmNames.includes(item.farm_name);
+            const matchesFlock = filters.flocks.length === 0 || filters.flocks.includes(String(item.new_flock));
+            const beginDate = new Date(item.begin_date);
+            const matchesDate = (!filters.startDate || beginDate >= new Date(filters.startDate)) &&
+                (!filters.endDate || beginDate <= new Date(filters.endDate));
+
+            return matchesFarm && matchesFlock && matchesDate;
+        });
+
+        populateTable(filteredData);
+        transposeTable();
+    }
+
+    // הצגת הטבלה ב-DOM
     function populateTable(data) {
-        const tbody = document.querySelector('#dataTable tbody');
+        const table = document.getElementById('dataTable');
+        const tbody = table.querySelector('tbody');
+        if (!tbody) {
+            console.error("Table tbody not found");
+            return;
+        }
         tbody.innerHTML = '';
+
         data.forEach(item => {
             const row = document.createElement('tr');
             row.innerHTML = `
-                <td>${item.farm_name}</td>
-                <td>${item.new_flock}</td>
-                <td>${item.begin_date}</td>
-                <td>${item.status}</td>
-                <td>${item.end_date || 'N/A'}</td>
-                <td>${item.begin_quantity}</td>
-                <td>${item.mortality14}</td>
-                <td>${item.percent14_tmuta}%</td>
-                <td>${item.marketed_quantity || 'N/A'}</td>
-                <td>${item.total_weight || 'N/A'}</td>
-                <td>${item.marketing_weight || 'N/A'}</td>
-                <td>${item.mesukan_weight || 'N/A'}</td>
-                <td>${item.nezilut_mazon || 'N/A'}</td>
-            `;
+            <td>${item.farm_name}</td>
+            <td>${item.new_flock}</td>
+            <td>${item.begin_date}</td>
+            <td>${item.end_date || 'N/A'}</td>
+            <td>${item.begin_quantity}</td>
+            <td>${item.mortality14}</td>
+            <td>${item.percent14_tmuta}%</td>
+            <td>${item.marketed_quantity || 'N/A'}</td>
+            <td>${item.total_weight || 'N/A'}</td>
+            <td>${item.marketing_weight || 'N/A'}</td>
+            <td>${item.mesukan_weight || 'N/A'}</td>
+            <td>${item.nezilut_mazon || 'N/A'}</td>
+        `;
             tbody.appendChild(row);
         });
     }
 
-    function populateFilters(data) {
-        const farmNames = [...new Set(data.map(item => item.farm_name))];
-        const flockNumbers = [...new Set(data.map(item => item.new_flock))];
-
-        const farmNameFilterGroup = document.getElementById('farmNameFilterGroup');
-        const flockNumberFilterGroup = document.getElementById('flockNumberFilterGroup');
-
-        farmNameFilterGroup.innerHTML = farmNames.map(name => `
-            <label><input type="checkbox" value="${name}" onchange="applyFilters()"> ${name}</label>
-        `).join('');
-
-        flockNumberFilterGroup.innerHTML = flockNumbers.map(number => `
-            <label><input type="checkbox" value="${number}" onchange="applyFilters()"> ${number}</label>
-        `).join('');
-    }
-
-    function applyFilters() {
-        const selectedFarmNames = Array.from(document.querySelectorAll('#farmNameFilterGroup input:checked')).map(input => input.value);
-        const selectedFlockNumbers = Array.from(document.querySelectorAll('#flockNumberFilterGroup input:checked')).map(input => input.value);
-        const selectedStatuses = Array.from(document.querySelectorAll('#statusFilterGroup input:checked')).map(input => input.value);
-
-        const startDate = document.getElementById('startDateFilter').value;
-        const endDate = document.getElementById('endDateFilter').value;
-
-        const filteredData = originalData.filter(item => {
-            const matchesFarm = selectedFarmNames.length === 0 || selectedFarmNames.includes(item.farm_name);
-            const matchesFlock = selectedFlockNumbers.length === 0 || selectedFlockNumbers.includes(String(item.new_flock));
-            const matchesStatus = selectedStatuses.includes(item.status);
-
-            const itemDate = new Date(item.begin_date);
-            const matchesDate = (!startDate || itemDate >= new Date(startDate)) &&
-                (!endDate || itemDate <= new Date(endDate));
-
-            return matchesFarm && matchesFlock && matchesStatus && matchesDate;
-        });
-
-        populateTable(filteredData);
-    }
-
+    // היפוך הטבלה (כמו שביקשת)
     function transposeTable() {
         const table = document.getElementById("dataTable");
         const rows = Array.from(table.rows);
+        if (rows.length === 0) return;
+
         const transposed = [];
 
         for (let i = 0; i < rows[0].cells.length; i++) {
@@ -289,16 +378,58 @@
         }
 
         table.innerHTML = "";
-        transposed.forEach((row, index) => {
-            const tr = table.insertRow();
-            row.forEach(cellContent => {
-                const cell = index === 0 ? tr.insertCell().outerHTML = `<th>${cellContent}</th>` : tr.insertCell().innerHTML = cellContent;
+        transposed.forEach(row => {
+            const tr = document.createElement('tr');
+            row.forEach(cell => {
+                const td = document.createElement('td');
+                td.innerHTML = cell;
+                tr.appendChild(td);
             });
+            table.appendChild(tr);
         });
     }
 
-    fetchData();
+    // איפוס כל הפילטרים
+    function clearFilters() {
+        document.querySelectorAll('.filter-container input[type="checkbox"]').forEach(checkbox => {
+            checkbox.checked = true;
+        });
+
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('startDateFilter').value = '2025-01-01';
+        document.getElementById('endDateFilter').value = today;
+
+        updateFilters();
+    }
+
+    // טעינה ראשונית
+
+    async function exportToExcel() {
+        try {
+            const response = await fetch(`${baseURL}/api/excel`);
+            if (!response.ok) throw new Error('Network response was not ok.');
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'report.xlsx';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+
+            console.log('Excel file downloaded');
+        } catch (error) {
+            console.error('Error exporting Excel:', error);
+        }
+    }
+
+
+
+
+    window.onload = beginLoad;
 </script>
 </body>
 </html>
-
