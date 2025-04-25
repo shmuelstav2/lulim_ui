@@ -32,13 +32,13 @@ async function generateExcel(data) {
     worksheet.mergeCells('B2:' + String.fromCharCode(66 + data.length - 1) + '2');
     const titleCell = worksheet.getCell('B2');
     titleCell.value = 'סיכום מדגרים 2025';
-    titleCell.font = { size: 18, bold: true };
+    titleCell.font = { size: 18, bold: true, name: 'Arial' }; // Set font to Arial
     titleCell.alignment = { vertical: 'middle', horizontal: 'center' };
 
     // כותרת "שם חווה" בתא B3
     const farmTitleCell = worksheet.getCell('B3');
     farmTitleCell.value = "שם חווה";
-    farmTitleCell.font = { bold: true };
+    farmTitleCell.font = { bold: true, name: 'Arial' }; // Set font to Arial
     farmTitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
     farmTitleCell.border = borderStyle;
 
@@ -52,7 +52,7 @@ async function generateExcel(data) {
             pattern: 'solid',
             fgColor: { argb: getSoftColor(farmIndex) }
         };
-        farmCell.font = { bold: true, size: 13 };
+        farmCell.font = { bold: true, size: 13, name: 'Arial' }; // Set font to Arial
         farmCell.alignment = { horizontal: 'center', vertical: 'middle' };
         farmCell.border = borderStyle;
     });
@@ -61,7 +61,7 @@ async function generateExcel(data) {
     headerTitles.forEach((header, i) => {
         const cell = worksheet.getCell(4 + i, 2);
         cell.value = header;
-        cell.font = { bold: true };
+        cell.font = { bold: true, name: 'Arial' }; // Set font to Arial
         cell.border = borderStyle;
         worksheet.getRow(4 + i).height = 20;
     });
@@ -73,20 +73,34 @@ async function generateExcel(data) {
         headerKeys.forEach((key, rowIndex) => {
             const row = 4 + rowIndex;
             const cell = worksheet.getCell(row, col);
-            cell.value = item[key] !== null ? item[key] : '';
+            let value = item[key] !== null ? item[key] : '';
 
+            // Apply formatting for specific fields
             if (key === 'percent14_tmuta') {
                 if (item[key] < 2) {
-                    cell.font = { color: { argb: 'FF0000FF' } };
+                    cell.font = { color: { argb: 'FF0000FF' }, name: 'Arial' }; // Set font to Arial
                 } else {
-                    cell.font = { color: { argb: 'FFFF0000' } };
+                    cell.font = { color: { argb: 'FFFF0000' }, name: 'Arial' }; // Set font to Arial
                 }
             }
 
-            if (['marketing_weight', 'nezilut_mazon'].includes(key)) {
-                cell.font = { color: { argb: 'FF0000FF' } };
+            if (key === 'marketing_weight') {
+                value = value ? value.toFixed(3) : ''; // 3 digits for משקל משווק
+                cell.font = { color: { argb: 'FF0000FF' }, name: 'Arial' }; // Set font to Arial
             }
 
+            if (key === 'nezilut_mazon') {
+                value = value ? value.toFixed(2) : ''; // 2 digits for נצילות מזון
+                cell.font = { color: { argb: 'FF0000FF' }, name: 'Arial' }; // Set font to Arial
+            }
+
+            // Date formatting for תאריך התחלה and תאריך סיום
+            if (key === 'min_begin_date' || key === 'max_end_date') {
+                const formattedDate = new Date(item[key]);
+                value = formattedDate.toLocaleDateString('en-GB'); // Format as DD-MM-YYYY
+            }
+
+            cell.value = value;
             cell.border = borderStyle;
             cell.alignment = { horizontal: 'center' };
         });
