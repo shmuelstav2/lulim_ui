@@ -1,0 +1,578 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>סיכומים - פנדי בע״מ</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" integrity="anonymous" referrerpolicy="no-referrer" />
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f9f9f9;
+            margin: 0;
+            padding: 0;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #d4ebaf, #b8d98a);
+            padding: 15px 30px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .header img {
+            max-height: 60px;
+        }
+
+        .header nav {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .header nav a {
+            text-decoration: none;
+            color: #333;
+            font-size: 16px;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: background-color 0.2s;
+        }
+
+        .header nav a:hover {
+            background-color: rgba(0, 0, 0, 0.08);
+        }
+
+        .header nav a.active {
+            background-color: rgba(0, 0, 0, 0.1);
+            font-weight: 700;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 22px;
+            color: #333;
+            margin: 24px 0 8px;
+        }
+
+        .filter-container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: flex-start;
+            gap: 15px;
+            padding: 15px 20px;
+            background-color: #f4f4f4;
+            border-bottom: 1px solid #ddd;
+            align-items: center;
+        }
+
+        .dropdown {
+            position: relative;
+        }
+
+        .uniform-button {
+            padding: 10px 15px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            background-color: #fff;
+            cursor: pointer;
+            border-radius: 5px;
+            width: 180px;
+            text-align: center;
+        }
+
+        .dropdown-content {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background-color: #fff;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+            padding: 10px;
+        }
+
+        .dropdown-content label {
+            display: block;
+            margin: 5px 0;
+            font-size: 14px;
+        }
+
+        .dropdown-content input {
+            margin-right: 5px;
+        }
+
+        .dropdown:hover .dropdown-content {
+            display: block;
+        }
+
+        .filter-actions {
+            display: flex;
+            gap: 10px;
+            margin-right: auto;
+        }
+
+        .clear-filters-btn {
+            padding: 10px 15px;
+            font-size: 14px;
+            border: 1px solid #ccc;
+            background-color: #f44336;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .clear-filters-btn:hover {
+            background-color: #e53935;
+        }
+
+        .export-btn {
+            padding: 10px 15px;
+            font-size: 14px;
+            border: none;
+            background-color: #28a745;
+            color: white;
+            cursor: pointer;
+            border-radius: 5px;
+            text-align: center;
+        }
+
+        .export-btn:hover {
+            background-color: #218838;
+        }
+
+        .table-wrapper {
+            overflow-x: auto;
+            margin: 20px;
+            background: #fff;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 8px 12px;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        th {
+            background: #eee;
+        }
+
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
+        #loading {
+            text-align: center;
+            font-size: 18px;
+            padding: 20px;
+        }
+
+        @media only screen and (max-width: 767.98px) {
+            .header {
+                flex-direction: column;
+                gap: 10px;
+                padding: 10px;
+            }
+            .header nav {
+                gap: 10px;
+            }
+            .header nav a {
+                font-size: 14px;
+                padding: 6px 10px;
+            }
+            .filter-container {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .uniform-button {
+                width: 100%;
+            }
+            .filter-actions {
+                margin-right: 0;
+                justify-content: center;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Header with nav -->
+<div class="header">
+    <img src="new/images/logo.png" alt="Logo">
+    <nav>
+        <a href="/new/database.html">דף הבית</a>
+        <a href="/sikumim">דוחות</a>
+        <a href="/sikumim2" class="active">סיכומים</a>
+    </nav>
+</div>
+
+<!-- KPI Cards -->
+<h2 class="section-title">סיכום כללי</h2>
+<div class="metrics-grid" id="kpiCards">
+    <div class="kpi-card">
+        <div class="kpi-value" id="kpi-marketed">-</div>
+        <div class="kpi-label">כמות עופות שסווקה</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value" id="kpi-mortality">-</div>
+        <div class="kpi-label">אחוז תמותה ממוצע</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value" id="kpi-begin-qty">-</div>
+        <div class="kpi-label">כמות התחלתית כוללת</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value" id="kpi-total-weight">-</div>
+        <div class="kpi-label">משקל כולל</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value" id="kpi-marketing-weight">-</div>
+        <div class="kpi-label">משקל שיווק ממוצע</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value" id="kpi-nezilut">-</div>
+        <div class="kpi-label">נצילות מזון ממוצעת</div>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="filter-container">
+    <div class="dropdown">
+        <button class="uniform-button">שם חווה</button>
+        <div class="dropdown-content" id="farmNameFilterGroup"></div>
+    </div>
+    <div class="dropdown">
+        <button class="uniform-button">מספר להקה</button>
+        <div class="dropdown-content" id="flockNumberFilterGroup"></div>
+    </div>
+    <div class="dropdown">
+        <button class="uniform-button">תאריך התחלה</button>
+        <div class="dropdown-content">
+            <label>מ: <input type="date" id="startDateFilter" onchange="updateFilters()"></label>
+            <label>עד: <input type="date" id="endDateFilter" onchange="updateFilters()"></label>
+        </div>
+    </div>
+    <div class="dropdown">
+        <button class="uniform-button">תאריך סיום</button>
+        <div class="dropdown-content">
+            <label>מ: <input type="date" id="startDateEndFilter" onchange="updateFilters()"></label>
+            <label>עד: <input type="date" id="endDateEndFilter" onchange="updateFilters()"></label>
+        </div>
+    </div>
+    <div class="filter-actions">
+        <button class="clear-filters-btn" onclick="clearFilters()"><i class="fas fa-times"></i> נקה הכל</button>
+        <button class="export-btn" onclick="exportToExcel()"><i class="fas fa-file-excel"></i> ייצוא לאקסל</button>
+    </div>
+</div>
+
+<!-- Table -->
+<div class="table-wrapper">
+    <div id="loading">טוען נתונים...</div>
+    <table id="dataTable" style="display: none;">
+        <thead>
+        <tr>
+            <th>שם חווה</th>
+            <th>מספר מדגר</th>
+            <th>תאריך התחלה</th>
+            <th>תאריך סיום</th>
+            <th>כמות התחלתית</th>
+            <th>תמותה (14 ימים)</th>
+            <th>אחוז תמותה (14 ימים)</th>
+            <th>כמות משווקת</th>
+            <th>משקל כולל</th>
+            <th>משקל שיווק</th>
+            <th>משקל משוכן</th>
+            <th>נצילות מזון</th>
+        </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+</div>
+
+<script>
+    // Helpers
+    function formatDate(dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        const day = String(d.getDate()).padStart(2, '0');
+        const month = String(d.getMonth() + 1).padStart(2, '0');
+        const year = String(d.getFullYear()).slice(-2);
+        return `${day}/${month}/${year}`;
+    }
+
+    function formatNumber(num) {
+        if (num == null || isNaN(num)) return '-';
+        return Number(num).toLocaleString('he-IL');
+    }
+
+    const isLocal = window.location.hostname === 'localhost';
+    const baseURL = isLocal ? 'http://localhost:3000' : 'https://fandy.cloud';
+
+    let allData = [];
+    let filters = {
+        farmNames: [],
+        flocks: [],
+        startDate: '',
+        endDate: '',
+        startDateEnd: '',
+        endDateEnd: ''
+    };
+
+    // Init
+    function beginLoad() {
+        fetchData().then(() => {
+            startFilters();
+        });
+    }
+
+    async function fetchData() {
+        try {
+            const response = await fetch(`${baseURL}/api/sikumim`);
+            const data = await response.json();
+            allData = data;
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('dataTable').style.display = 'table';
+        } catch (error) {
+            console.error('Error fetching data:', error);
+            document.getElementById('loading').textContent = 'שגיאה בטעינת נתונים.';
+        }
+    }
+
+    function startFilters() {
+        const farmNames = [...new Set(allData.map(item => item.farm_name))];
+        const flocks = [...new Set(allData.map(item => item.new_flock))];
+
+        const farmNameGroup = document.getElementById('farmNameFilterGroup');
+        const flockNumberGroup = document.getElementById('flockNumberFilterGroup');
+
+        farmNameGroup.innerHTML = farmNames.map(name => `
+            <label><input type="checkbox" value="${name}" checked onchange="updateFilters()"> ${name}</label>
+        `).join('');
+
+        flockNumberGroup.innerHTML = flocks.map(flock => `
+            <label><input type="checkbox" value="${flock}" checked onchange="updateFilters()"> ${flock}</label>
+        `).join('');
+
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('startDateFilter').value = '2025-01-01';
+        document.getElementById('endDateFilter').value = today;
+
+        filters.startDate = '2025-01-01';
+        filters.endDate = today;
+
+        updateFilters();
+    }
+
+    function updateFilters() {
+        filters.farmNames = Array.from(document.querySelectorAll('#farmNameFilterGroup input:checked')).map(input => input.value);
+        filters.flocks = Array.from(document.querySelectorAll('#flockNumberFilterGroup input:checked')).map(input => input.value);
+        filters.startDate = document.getElementById('startDateFilter').value;
+        filters.endDate = document.getElementById('endDateFilter').value;
+        filters.startDateEnd = document.getElementById('startDateEndFilter').value;
+        filters.endDateEnd = document.getElementById('endDateEndFilter').value;
+
+        makeTable();
+    }
+
+    function makeTable() {
+        const filteredData = allData.filter(item => {
+            const matchesFarm = filters.farmNames.length === 0 || filters.farmNames.includes(item.farm_name);
+            const matchesFlock = filters.flocks.length === 0 || filters.flocks.includes(String(item.new_flock));
+
+            const beginDate = new Date(item.begin_date);
+            const matchesBeginDate = (!filters.startDate || beginDate >= new Date(filters.startDate)) &&
+                (!filters.endDate || beginDate <= new Date(filters.endDate));
+
+            const endDate = item.end_date ? new Date(item.end_date) : null;
+            const matchesEndDate = (!filters.startDateEnd || (endDate && endDate >= new Date(filters.startDateEnd))) &&
+                (!filters.endDateEnd || (endDate && endDate <= new Date(filters.endDateEnd)));
+
+            return matchesFarm && matchesFlock && matchesBeginDate && matchesEndDate;
+        });
+
+        updateKPIs(filteredData);
+        populateTable(filteredData);
+        transposeTable();
+    }
+
+    // KPI calculations
+    function updateKPIs(data) {
+        if (data.length === 0) {
+            document.getElementById('kpi-marketed').textContent = '-';
+            document.getElementById('kpi-mortality').textContent = '-';
+            document.getElementById('kpi-begin-qty').textContent = '-';
+            document.getElementById('kpi-total-weight').textContent = '-';
+            document.getElementById('kpi-marketing-weight').textContent = '-';
+            document.getElementById('kpi-nezilut').textContent = '-';
+            return;
+        }
+
+        // Sum: marketed_quantity
+        const sumMarketed = data.reduce((acc, item) => acc + (parseFloat(item.marketed_quantity) || 0), 0);
+        document.getElementById('kpi-marketed').textContent = formatNumber(sumMarketed);
+
+        // Avg: percent14_tmuta
+        const mortalityValues = data.filter(item => item.percent14_tmuta != null).map(item => parseFloat(item.percent14_tmuta));
+        const avgMortality = mortalityValues.length > 0 ? (mortalityValues.reduce((a, b) => a + b, 0) / mortalityValues.length) : 0;
+        document.getElementById('kpi-mortality').textContent = avgMortality.toFixed(2) + '%';
+
+        // Sum: begin_quantity
+        const sumBeginQty = data.reduce((acc, item) => acc + (parseFloat(item.begin_quantity) || 0), 0);
+        document.getElementById('kpi-begin-qty').textContent = formatNumber(sumBeginQty);
+
+        // Sum: total_weight
+        const sumTotalWeight = data.reduce((acc, item) => acc + (parseFloat(item.total_weight) || 0), 0);
+        document.getElementById('kpi-total-weight').textContent = formatNumber(Math.round(sumTotalWeight)) + ' טון';
+
+        // Avg: marketing_weight
+        const mwValues = data.filter(item => item.marketing_weight != null).map(item => parseFloat(item.marketing_weight));
+        const avgMarketingWeight = mwValues.length > 0 ? (mwValues.reduce((a, b) => a + b, 0) / mwValues.length) : 0;
+        document.getElementById('kpi-marketing-weight').textContent = avgMarketingWeight.toFixed(2) + ' ק״ג';
+
+        // Avg: nezilut_mazon
+        const nzValues = data.filter(item => item.nezilut_mazon != null).map(item => parseFloat(item.nezilut_mazon));
+        const avgNezilut = nzValues.length > 0 ? (nzValues.reduce((a, b) => a + b, 0) / nzValues.length) : 0;
+        document.getElementById('kpi-nezilut').textContent = avgNezilut.toFixed(2);
+    }
+
+    // Table rendering
+    function populateTable(data) {
+        const tableWrapper = document.querySelector('.table-wrapper');
+        if (!tableWrapper) return;
+
+        const oldTable = document.getElementById('dataTable');
+        if (oldTable) oldTable.remove();
+
+        const table = document.createElement('table');
+        table.id = 'dataTable';
+        table.style.display = 'none';
+
+        const thead = document.createElement('thead');
+        thead.innerHTML = `
+            <tr>
+                <th>שם חווה</th>
+                <th>מספר מדגר</th>
+                <th>תאריך התחלה</th>
+                <th>תאריך סיום</th>
+                <th>כמות התחלתית</th>
+                <th>תמותה (14 ימים)</th>
+                <th>אחוז תמותה (14 ימים)</th>
+                <th>כמות משווקת</th>
+                <th>משקל כולל</th>
+                <th>משקל שיווק</th>
+                <th>משקל משוכן</th>
+                <th>נצילות מזון</th>
+            </tr>
+        `;
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        table.appendChild(tbody);
+        tableWrapper.appendChild(table);
+
+        if (data.length === 0) {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('loading').innerText = 'אין נתונים להצגה';
+            table.style.display = 'none';
+            return;
+        }
+
+        document.getElementById('loading').style.display = 'none';
+
+        data.forEach(item => {
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td>${item.farm_name}</td>
+                <td>${item.new_flock}</td>
+                <td>${formatDate(item.begin_date)}</td>
+                <td>${item.end_date ? formatDate(item.end_date) : 'N/A'}</td>
+                <td>${item.begin_quantity}</td>
+                <td>${item.mortality14}</td>
+                <td>${item.percent14_tmuta != null ? parseFloat(item.percent14_tmuta).toFixed(2) + '%' : 'N/A'}</td>
+                <td>${item.marketed_quantity || 'N/A'}</td>
+                <td>${item.total_weight || 'N/A'}</td>
+                <td>${item.marketing_weight || 'N/A'}</td>
+                <td>${item.mesukan_weight || 'N/A'}</td>
+                <td>${item.nezilut_mazon || 'N/A'}</td>
+            `;
+            tbody.appendChild(row);
+        });
+
+        table.style.display = 'table';
+    }
+
+    // Transpose table (rows become columns)
+    function transposeTable() {
+        const table = document.getElementById("dataTable");
+        if (!table) return;
+        const rows = Array.from(table.rows);
+        if (rows.length === 0) return;
+
+        const transposed = [];
+        for (let i = 0; i < rows[0].cells.length; i++) {
+            const newRow = [];
+            for (let j = 0; j < rows.length; j++) {
+                newRow.push(rows[j].cells[i].innerHTML);
+            }
+            transposed.push(newRow);
+        }
+
+        table.innerHTML = "";
+        transposed.forEach(row => {
+            const tr = document.createElement('tr');
+            row.forEach(cell => {
+                const td = document.createElement('td');
+                td.innerHTML = cell;
+                tr.appendChild(td);
+            });
+            table.appendChild(tr);
+        });
+    }
+
+    // Clear all filters
+    function clearFilters() {
+        document.querySelectorAll('.filter-container input[type="checkbox"]').forEach(checkbox => {
+            checkbox.checked = true;
+        });
+
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('startDateFilter').value = '2025-01-01';
+        document.getElementById('endDateFilter').value = today;
+        document.getElementById('startDateEndFilter').value = '';
+        document.getElementById('endDateEndFilter').value = '';
+
+        updateFilters();
+    }
+
+    // Export to Excel
+    function exportToExcel() {
+        const table = document.getElementById('dataTable');
+        if (!table) return;
+
+        const wb = XLSX.utils.book_new();
+        const ws = XLSX.utils.table_to_sheet(table);
+        XLSX.utils.book_append_sheet(wb, ws, 'סיכומים');
+        XLSX.writeFile(wb, 'sikumim.xlsx');
+    }
+
+    window.onload = beginLoad;
+</script>
+</body>
+</html>

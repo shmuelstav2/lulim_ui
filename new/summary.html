@@ -156,6 +156,63 @@
             background-color: #e53935;  /* שינוי צבע ב-hover */
         }
 
+        /* KPI Cards */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 20px;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .kpi-card {
+            background: #fff;
+            border-radius: 10px;
+            padding: 24px 20px;
+            text-align: center;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border-top: 4px solid #4CAF50;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .kpi-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+        }
+
+        .kpi-value {
+            font-size: 32px;
+            font-weight: 700;
+            color: #2e7d32;
+            margin-bottom: 8px;
+        }
+
+        .kpi-label {
+            font-size: 16px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        @media only screen and (max-width: 991.98px) {
+            .metrics-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media only screen and (max-width: 767.98px) {
+            .metrics-grid {
+                grid-template-columns: 1fr;
+                padding: 10px;
+            }
+            .kpi-value {
+                font-size: 26px;
+            }
+            .kpi-label {
+                font-size: 14px;
+            }
+        }
+
     </style>
 </head>
 <body>
@@ -166,6 +223,34 @@
 
 <div class="main-heading">
     <h1>סיכומי מדגרים</h1>
+</div>
+
+<!-- KPI Cards -->
+<div class="metrics-grid" id="kpiCards">
+    <div class="kpi-card">
+        <div class="kpi-value" id="kpi-marketed">-</div>
+        <div class="kpi-label">כמות עופות שסווקה</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value" id="kpi-mortality">-</div>
+        <div class="kpi-label">אחוז תמותה ממוצע</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value" id="kpi-begin-qty">-</div>
+        <div class="kpi-label">כמות התחלתית כוללת</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value" id="kpi-total-weight">-</div>
+        <div class="kpi-label">משקל כולל</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value" id="kpi-marketing-weight">-</div>
+        <div class="kpi-label">משקל שיווק ממוצע</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-value" id="kpi-nezilut">-</div>
+        <div class="kpi-label">נצילות מזון ממוצעת</div>
+    </div>
 </div>
 
 <!-- Filters Section -->
@@ -251,6 +336,51 @@
 </div>
 
 <script>
+    function formatDate(dateStr) {
+        if (!dateStr) return '';
+        const parts = dateStr.split('T')[0].split('-');
+        if (parts.length !== 3) return dateStr;
+        return `${parts[2]}/${parts[1]}/${parts[0].slice(-2)}`;
+    }
+
+    function formatNumber(num) {
+        if (num == null || isNaN(num)) return '-';
+        return Number(num).toLocaleString('he-IL');
+    }
+
+    function updateKPIs(data) {
+        if (data.length === 0) {
+            document.getElementById('kpi-marketed').textContent = '-';
+            document.getElementById('kpi-mortality').textContent = '-';
+            document.getElementById('kpi-begin-qty').textContent = '-';
+            document.getElementById('kpi-total-weight').textContent = '-';
+            document.getElementById('kpi-marketing-weight').textContent = '-';
+            document.getElementById('kpi-nezilut').textContent = '-';
+            return;
+        }
+
+        const sumMarketed = data.reduce((acc, item) => acc + (parseFloat(item.marketed_quantity) || 0), 0);
+        document.getElementById('kpi-marketed').textContent = formatNumber(sumMarketed);
+
+        const mortalityVals = data.filter(item => item.percent14_tmuta != null).map(item => parseFloat(item.percent14_tmuta));
+        const avgMortality = mortalityVals.length > 0 ? (mortalityVals.reduce((a, b) => a + b, 0) / mortalityVals.length) : 0;
+        document.getElementById('kpi-mortality').textContent = avgMortality.toFixed(2) + '%';
+
+        const sumBeginQty = data.reduce((acc, item) => acc + (parseFloat(item.begin_quantity) || 0), 0);
+        document.getElementById('kpi-begin-qty').textContent = formatNumber(sumBeginQty);
+
+        const sumTotalWeight = data.reduce((acc, item) => acc + (parseFloat(item.total_weight) || 0), 0);
+        document.getElementById('kpi-total-weight').textContent = formatNumber(Math.round(sumTotalWeight)) + ' טון';
+
+        const mwVals = data.filter(item => item.marketing_weight != null).map(item => parseFloat(item.marketing_weight));
+        const avgMW = mwVals.length > 0 ? (mwVals.reduce((a, b) => a + b, 0) / mwVals.length) : 0;
+        document.getElementById('kpi-marketing-weight').textContent = avgMW.toFixed(2) + ' ק״ג';
+
+        const nzVals = data.filter(item => item.nezilut_mazon != null).map(item => parseFloat(item.nezilut_mazon));
+        const avgNZ = nzVals.length > 0 ? (nzVals.reduce((a, b) => a + b, 0) / nzVals.length) : 0;
+        document.getElementById('kpi-nezilut').textContent = avgNZ.toFixed(2);
+    }
+
     const isLocal = window.location.hostname === 'localhost';
     const baseURL = isLocal ? 'http://localhost:3000' : 'https://fandy.cloud';
     let allData = [];
@@ -334,6 +464,7 @@
             return matchesFarm && matchesFlock && matchesDate;
         });
 
+        updateKPIs(filteredData);
         populateTable(filteredData);
         transposeTable();
     }
@@ -407,11 +538,11 @@
             row.innerHTML = `
       <td>${item.farm_name}</td>
       <td>${item.new_flock}</td>
-      <td>${item.begin_date}</td>
-      <td>${item.end_date || 'N/A'}</td>
+      <td>${formatDate(item.begin_date)}</td>
+      <td>${item.end_date ? formatDate(item.end_date) : 'N/A'}</td>
       <td>${item.begin_quantity}</td>
       <td>${item.mortality14}</td>
-      <td>${item.percent14_tmuta}%</td>
+      <td>${item.percent14_tmuta != null ? parseFloat(item.percent14_tmuta).toFixed(2) + '%' : 'N/A'}</td>
       <td>${item.marketed_quantity || 'N/A'}</td>
       <td>${item.total_weight || 'N/A'}</td>
       <td>${item.marketing_weight || 'N/A'}</td>

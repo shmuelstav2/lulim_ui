@@ -175,3 +175,62 @@ background-color: #d7d7d7 !important;
 html{
     scroll-behavior: smooth;
 }
+
+/* Summary Dashboard - KPI Cards */
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    padding: 20px;
+    max-width: 1200px;
+    margin: 0 auto;
+}
+
+.kpi-card {
+    background: #fff;
+    border-radius: 10px;
+    padding: 24px 20px;
+    text-align: center;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+    border-top: 4px solid #4CAF50;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.kpi-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+}
+
+.kpi-card .kpi-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: #2e7d32;
+    margin-bottom: 8px;
+    direction: ltr;
+    unicode-bidi: bidi-override;
+}
+
+.kpi-card .kpi-label {
+    font-size: 16px;
+    color: #555;
+    font-weight: 500;
+}
+
+@media only screen and (max-width: 991.98px) {
+    .metrics-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media only screen and (max-width: 767.98px) {
+    .metrics-grid {
+        grid-template-columns: 1fr;
+        padding: 10px;
+    }
+    .kpi-card .kpi-value {
+        font-size: 26px;
+    }
+    .kpi-card .kpi-label {
+        font-size: 14px;
+    }
+}
