@@ -4,89 +4,107 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>תמלול ותרגום חי</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;500&family=Heebo:wght@400;500;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
 <style>
-  /* Layout: two reading columns, English on the left, Hebrew on the right, one row per sentence */
+  /* Layout: ink header with controls, paper sheet with collapsible summary, two reading columns (EN left / HE right), live line at the bottom */
   :root{
-    --bg:#f5f3ee; --fg:#1b1a17; --muted:#6f6b60; --panel:#ffffff; --line:#e2dfd5;
-    --en:#163f6b; --he:#0f6b4a; --live:#b85c1e; --danger:#a1203c;
-    --heb:"Heebo",-apple-system,"Segoe UI",Arial,sans-serif;
-    --eng:"Source Serif 4",Georgia,"Times New Roman",serif;
-    --mono:"SF Mono",Menlo,Consolas,monospace;
+    --bg:#efece4; --paper:#fbfaf6; --fg:#1c1a16; --muted:#75705f; --line:#e0dbcd; --ink:#1f2a3a; --ink-fg:#f3efe6;
+    --en:#1f3f66; --he:#17604a; --amber:#c0671f; --amber-soft:#f6e6d2; --danger:#a1203c;
+    --heb:"Heebo",-apple-system,"Segoe UI",Arial,sans-serif; --disp:"Frank Ruhl Libre","Heebo",Georgia,serif;
+    --eng:"Source Serif 4",Georgia,"Times New Roman",serif; --mono:"SF Mono",Menlo,Consolas,monospace;
   }
-  @media (prefers-color-scheme:dark){
-    :root{ --bg:#141518; --fg:#ebe8e0; --muted:#9b978c; --panel:#1d1f24; --line:#30333a;
-           --en:#8ab8ea; --he:#5dcf9f; --live:#f0a059; --danger:#fb7185; color-scheme:dark }
-  }
+  @media (prefers-color-scheme:dark){ :root{ --bg:#121317; --paper:#1a1c22; --fg:#ebe7dd; --muted:#9a958a; --line:#2d3038; --ink:#0d1016; --ink-fg:#e9e4d8; --en:#8fbaea; --he:#64cfa3; --amber:#f0a059; --amber-soft:#2d2419; --danger:#fb7185; color-scheme:dark } }
   *{box-sizing:border-box}
   html,body{height:100%}
   body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--heb);display:flex;flex-direction:column}
 
-  header{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line);padding:12px 24px;display:flex;flex-wrap:wrap;align-items:center;gap:10px}
-  header h1{margin:0 0 0 auto;font-size:17px;font-weight:700;letter-spacing:.2px}
-  header h1 small{font-weight:400;color:var(--muted);margin-inline-start:8px;font-size:13px}
-  #status{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);max-width:40ch}
-  #status .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
-  #status.on .dot{background:var(--live);box-shadow:0 0 0 4px color-mix(in srgb,var(--live) 25%,transparent)}
-  #status.err{color:var(--danger)}
-  button,select{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--panel);color:var(--fg);padding:8px 14px;border-radius:8px;cursor:pointer}
-  button.primary{background:var(--he);color:#fff;border-color:var(--he);font-weight:700;min-width:84px}
-  button.primary.stop{background:var(--danger);border-color:var(--danger)}
-  button:focus-visible,select:focus-visible{outline:2px solid var(--he);outline-offset:2px}
+  header{background:var(--ink);color:var(--ink-fg);flex:none}
+  header .in{max-width:1120px;margin:0 auto;padding:18px 20px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+  header h1{margin:0 auto 0 0;font-family:var(--disp);font-weight:500;font-size:26px;line-height:1.1}
+  header h1 small{display:block;font-family:var(--eng);font-size:11px;letter-spacing:.18em;text-transform:uppercase;opacity:.7;margin-top:4px;direction:ltr;text-align:right}
+  #status{display:flex;align-items:center;gap:7px;font-size:13px;opacity:.9;max-width:44ch;line-height:1.3}
+  #status .dot{width:9px;height:9px;border-radius:50%;background:#8a8f99;flex:none}
+  #status.on .dot{background:var(--amber);box-shadow:0 0 0 4px color-mix(in srgb,var(--amber) 30%,transparent)}
+  #status.err{color:#ffb4c0}
+  button,select{font:inherit;font-size:14px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.06);color:var(--ink-fg);padding:8px 14px;border-radius:9px;cursor:pointer}
+  button:hover{background:rgba(255,255,255,.12)}
+  select option{color:#000}
+  button.primary{background:var(--amber);border-color:var(--amber);color:#1a1208;font-weight:700;min-width:90px}
+  button.primary.stop{background:var(--danger);border-color:var(--danger);color:#fff}
+  button:focus-visible,select:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
 
-  main{flex:1;overflow:auto;padding:16px 24px 48px}
-  .sheet{max-width:1180px;margin:0 auto}
-  .cols{display:grid;grid-template-columns:1fr 1fr;gap:0 32px;position:sticky;top:0;background:var(--bg);padding:10px 0 6px;border-bottom:2px solid var(--line);margin-bottom:6px}
-  .cols span{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:500}
+  main{flex:1;overflow:auto;padding:18px 20px 40px}
+  .sheet{max-width:1080px;margin:0 auto;background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px -18px rgba(0,0,0,.35);overflow:hidden}
+  details.sum{border-bottom:1px solid var(--line);background:var(--amber-soft)}
+  details.sum summary{list-style:none;cursor:pointer;padding:13px 22px;display:flex;align-items:center;gap:12px;font-weight:700;font-size:15px}
+  details.sum summary::-webkit-details-marker{display:none}
+  details.sum summary::before{content:"▸";color:var(--amber);transition:transform .2s}
+  details.sum[open] summary::before{transform:rotate(90deg)}
+  details.sum summary .when{margin-inline-start:auto;font-weight:400;font-size:12px;color:var(--muted)}
+  .sumbody{padding:0 22px 16px;display:grid;grid-template-columns:1fr 1fr;gap:14px 32px}
+  .sumbody p{margin:0;line-height:1.7;font-size:16px;white-space:pre-wrap}
+  .sumbody .en{direction:ltr;text-align:left;font-family:var(--eng);color:var(--en)}
+  .sumbody .he{color:var(--he)}
+  .sumbody .none{grid-column:1/-1;color:var(--muted);font-size:14px;margin:0}
+  .sumbody .act{grid-column:1/-1;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+  .sumbody button{border-color:var(--amber);color:var(--amber);background:transparent;font-size:13px;padding:6px 12px}
+  .sumbody button:hover{background:color-mix(in srgb,var(--amber) 12%,transparent)}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:0 32px;padding:12px 22px 8px;border-bottom:2px solid var(--line);position:sticky;top:0;background:var(--paper);z-index:1}
+  .cols span{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:500}
   .cols .en{direction:ltr;text-align:left;font-family:var(--eng)}
-  .cols .he{text-align:right}
-
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:0 32px;padding:12px 0;border-bottom:1px solid var(--line);position:relative}
-  .row time{position:absolute;top:14px;inset-inline-end:calc(100% + 10px);font-family:var(--mono);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
-  .cell{font-size:20px;line-height:1.55;min-width:0;overflow-wrap:anywhere}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:2px 32px;padding:14px 22px;border-bottom:1px solid var(--line)}
+  .row time{grid-column:1/-1;font-family:var(--mono);font-size:11px;color:var(--muted);direction:ltr;text-align:right;font-variant-numeric:tabular-nums}
+  .cell{font-size:19px;line-height:1.55;min-width:0;overflow-wrap:anywhere}
   .cell.en{direction:ltr;text-align:left;font-family:var(--eng);color:var(--en)}
-  .cell.he{direction:rtl;text-align:right;color:var(--he)}
+  .cell.he{color:var(--he)}
   .cell.pending{color:var(--muted);font-style:italic;font-size:16px}
+  #live{display:grid;grid-template-columns:1fr 1fr;gap:0 32px;padding:14px 22px 18px;min-height:4.2em;background:color-mix(in srgb,var(--amber) 6%,var(--paper))}
+  #live .cell{color:var(--amber);font-style:italic}
+  #empty{color:var(--muted);text-align:center;padding:56px 22px;margin:0 auto;max-width:46ch;line-height:1.7;font-size:15px}
+  #empty b{color:var(--fg)}
 
-  #live{display:grid;grid-template-columns:1fr 1fr;gap:0 32px;padding:14px 0 6px;min-height:3.2em}
-  #live .cell{color:var(--live);font-style:italic}
-  #empty{color:var(--muted);text-align:center;margin:14vh auto 0;max-width:46ch;line-height:1.7;font-size:15px}
-
-  footer{border-top:1px solid var(--line);padding:10px 24px;font-size:12px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap}
+  footer{flex:none;border-top:1px solid var(--line);padding:10px 20px;font-size:12px;color:var(--muted);display:flex;gap:18px;flex-wrap:wrap}
   footer b{color:var(--fg);font-weight:500}
+  #shareState.on{color:var(--amber)}
 
   @media (max-width:760px){
-    header{padding:10px 16px} main{padding:12px 16px 40px}
-    .cols,.row,#live{grid-template-columns:1fr;gap:6px 0}
+    header .in{padding:12px 16px} main{padding:12px 12px 32px}
+    .cols,.row,#live,.sumbody{grid-template-columns:1fr;gap:6px 0}
     .cols .en{display:none}
-    .row time{position:static;display:block;margin-bottom:4px}
     .cell{font-size:18px}
     .cell.en{border-bottom:1px dashed var(--line);padding-bottom:6px}
   }
   @media (prefers-reduced-motion:no-preference){ .row{animation:in .25s ease-out} }
+  @media (prefers-reduced-motion:reduce){ details.sum summary::before{transition:none} }
   @keyframes in{from{opacity:.3;transform:translateY(4px)}to{opacity:1;transform:none}}
 </style>
 </head>
 <body>
-<header>
-  <h1>תמלול ותרגום חי <small>English ⇄ עברית</small></h1>
+<header><div class="in">
+  <h1>תמלול ותרגום חי<small>English → Hebrew · live</small></h1>
   <span id="status"><span class="dot"></span><span id="statusText">לא מאזין</span></span>
   <select id="lang" title="כיוון">
-    <option value="en-US|he" selected>הדובר מדבר אנגלית → תרגום לעברית</option>
-    <option value="he-IL|en">הדובר מדבר עברית → תרגום לאנגלית</option>
+    <option value="en-US|he" selected>הדובר מדבר אנגלית → עברית</option>
+    <option value="he-IL|en">הדובר מדבר עברית → אנגלית</option>
   </select>
   <button id="toggle" class="primary">התחל</button>
   <button id="share">פתח שיתוף</button>
   <button id="copy">העתק</button>
   <button id="save">שמור קובץ</button>
   <button id="clear">נקה</button>
-</header>
+</div></header>
 
 <main>
   <div class="sheet">
-    <div class="cols"><span class="en">English</span><span class="he">עברית</span></div>
-    <div id="log"><p id="empty">לחצי <b>התחל</b> ואשרי את המיקרופון פעם אחת.<br>כל משפט שמסתיים מופיע כאן: המקור באנגלית משמאל והתרגום לעברית מימין. הטקסט הכתום הוא מה שנשמע ברגע זה.</p></div>
+    <details class="sum">
+      <summary>סיכום מתכלל עד כאן <span class="when" id="sumWhen"></span></summary>
+      <div class="sumbody" id="sumBody">
+        <p class="none">הסיכום נוצר בדף השיתוף (דרך Claude) ומתעדכן כל כמה דקות. אפשר לבקש אותו גם עכשיו.</p>
+        <div class="act"><button id="sumNow" type="button">סכם עד כאן</button><span id="sumState"></span></div>
+      </div>
+    </details>
+    <div class="cols"><span class="en">English</span><span>עברית</span></div>
+    <div id="log"><p id="empty">לחצי <b>התחל</b> ואשרי את המיקרופון פעם אחת.<br>כל משפט שמסתיים מופיע כאן: המקור באנגלית משמאל והתרגום לעברית מימין. הטקסט הכתום הוא מה שנשמע ברגע זה.<br><b>פתח שיתוף</b> פותח את הדף שהחברים קוראים ומזרים אליו את המשפטים.</p></div>
     <div id="live"><div class="cell en" id="liveEn"></div><div class="cell he" id="liveHe"></div></div>
   </div>
 </main>
@@ -95,7 +113,6 @@
   <span>משפטים: <b id="count">0</b></span>
   <span>התחלה: <b id="started">—</b></span>
   <span id="shareState">שיתוף לא פעיל — "פתח שיתוף" פותח את הדף הציבורי שהחברים קוראים</span>
-  <span>עובד בכרום בלבד · פתחי דרך http://localhost ולא מהקובץ ישירות, אחרת כרום מבקש מיקרופון שוב ושוב</span>
 </footer>
 
 <script>
@@ -107,7 +124,7 @@ let rec=null, running=false, lines=[], liveTimer=null;
 // ---- live sharing: the public page friends read ----
 const SHARE_URL = 'https://claude.ai/artifact/8vmymuzrBYQtiYmSagA7um';
 const SHARE_KEY = 'lt-7f3a9c';
-let shareWin=null, acked=-1, shareTimer=null;
+let shareWin=null, shareTimer=null, wantSummary=false;
 function postAll(w, msg, depth){
   try{ w.postMessage(msg,'*'); }catch(_){}
   if(depth>4) return;
@@ -115,15 +132,28 @@ function postAll(w, msg, depth){
   for(let i=0;i<n;i++){ try{ postAll(w[i], msg, depth+1); }catch(_){} }
 }
 function sync(force){
-  if(!shareWin || shareWin.closed){ $('shareState').textContent='השיתוף סגור — לחצי "פתח שיתוף"'; return; }
+  if(!shareWin || shareWin.closed){ $('shareState').textContent='השיתוף סגור — לחצי "פתח שיתוף"'; $('shareState').className=''; return; }
   const payload=lines.map(l=>({id:l.id,t:l.t,en:l.en,he:l.he}));
-  postAll(shareWin,{type:'lt-sync',key:SHARE_KEY,lines:payload,force:!!force},0);
+  postAll(shareWin,{type:'lt-sync',key:SHARE_KEY,lines:payload,force:!!force,wantSummary},0);
+  wantSummary=false;
 }
-window.addEventListener('message',e=>{ const d=e.data; if(d&&d.type==='lt-ack'&&d.key===SHARE_KEY){ acked=d.count; $('shareState').textContent='שיתוף פעיל · '+d.count+' משפטים בדף הציבורי'; } });
+window.addEventListener('message',e=>{
+  const d=e.data; if(!d||d.type!=='lt-ack'||d.key!==SHARE_KEY) return;
+  $('shareState').textContent='שיתוף פעיל · '+d.count+' משפטים בדף הציבורי'; $('shareState').className='on';
+  if(d.summary && d.summary.he) showSummary(d.summary);
+});
+function showSummary(s){
+  $('sumWhen').textContent='נכון ל-'+s.at+' · '+s.count+' משפטים';
+  $('sumBody').innerHTML='<p class="he"></p><p class="en"></p><div class="act"><button id="sumNow" type="button">סכם שוב עד כאן</button><span id="sumState"></span></div>';
+  $('sumBody').querySelector('.he').textContent=s.he; $('sumBody').querySelector('.en').textContent=s.en||'';
+  document.querySelector('details.sum').open=true; wireSum();
+}
+function wireSum(){ $('sumNow').onclick=()=>{ if(!shareWin||shareWin.closed){ $('sumState').textContent='קודם לחצי "פתח שיתוף"'; return; } if(!lines.length){ $('sumState').textContent='עדיין אין מה לסכם'; return; } wantSummary=true; $('sumState').textContent='מסכם… (כ-20 שניות)'; sync(true); }; }
+wireSum();
 function openShare(){
   if(shareWin && !shareWin.closed){ shareWin.focus(); return; }
   shareWin=window.open(SHARE_URL,'lt-share');
-  if(!shareWin){ $('shareState').textContent='הדפדפן חסם את החלון — אפשרי חלונות קופצים ל-localhost'; return; }
+  if(!shareWin){ $('shareState').textContent='הדפדפן חסם את החלון — אפשרי חלונות קופצים לאתר הזה'; return; }
   $('shareState').textContent='נפתח דף השיתוף… (השאירי אותו פתוח)';
   clearInterval(shareTimer); shareTimer=setInterval(()=>sync(false),4000);
 }
