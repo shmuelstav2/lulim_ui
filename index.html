@@ -121,6 +121,8 @@
 </footer>
 
 <script>
+// Opened from a local file? Chrome never remembers the microphone for file:// pages — go to the hosted copy instead.
+if(location.protocol==='file:' || location.hostname==='localhost'){ location.replace('https://shmuelstav2.github.io/lulim_ui/'); }
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const $ = id => document.getElementById(id);
 const log=$('log'), liveEn=$('liveEn'), liveHe=$('liveHe'), status=$('status'), statusText=$('statusText'), toggle=$('toggle');
