@@ -65,6 +65,10 @@
 
   footer{flex:none;border-top:1px solid var(--line);padding:10px 20px;font-size:12px;color:var(--muted);display:flex;gap:18px;flex-wrap:wrap}
   footer b{color:var(--fg);font-weight:500}
+  footer .viewer{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  footer a{color:var(--en);direction:ltr;font-family:var(--mono);font-size:11px;word-break:break-all}
+  footer button{font-size:12px;padding:4px 10px;border:1px solid var(--amber);color:var(--amber);background:transparent}
+  footer button:hover{background:color-mix(in srgb,var(--amber) 12%,transparent)}
   #shareState.on{color:var(--amber)}
 
   @media (max-width:760px){
@@ -104,7 +108,7 @@
       </div>
     </details>
     <div class="cols"><span class="en">English</span><span>עברית</span></div>
-    <div id="log"><p id="empty">לחצי <b>התחל</b> ואשרי את המיקרופון פעם אחת.<br>כל משפט שמסתיים מופיע כאן: המקור באנגלית משמאל והתרגום לעברית מימין. הטקסט הכתום הוא מה שנשמע ברגע זה.<br><b>פתח שיתוף</b> פותח את הדף שהחברים קוראים ומזרים אליו את המשפטים.</p></div>
+    <div id="log"><p id="empty">לחצי <b>התחל</b> ואשרי את המיקרופון פעם אחת.<br>כל משפט שמסתיים מופיע כאן: המקור באנגלית משמאל והתרגום לעברית מימין. הטקסט הכתום הוא מה שנשמע ברגע זה.<br>כל משפט משודר מיד ל<b>קישור לצופים</b> (למטה) — כל מי שפותח אותו רואה את התמלול בזמן אמת. <b>פתח שיתוף</b> מוסיף סיכום מתכלל אוטומטי.</p></div>
     <div id="live"><div class="cell en" id="liveEn"></div><div class="cell he" id="liveHe"></div></div>
   </div>
 </main>
@@ -112,7 +116,8 @@
 <footer>
   <span>משפטים: <b id="count">0</b></span>
   <span>התחלה: <b id="started">—</b></span>
-  <span id="shareState">שיתוף לא פעיל — "פתח שיתוף" פותח את הדף הציבורי שהחברים קוראים</span>
+  <span class="viewer">קישור לצופים: <a id="viewLink" href="#" target="_blank" rel="noopener"></a> <span id="bcastState"></span> <button id="copyView" type="button">העתק קישור לצופים</button></span>
+  <span id="shareState">סיכום: לחצי "פתח שיתוף" כדי להפעיל את הסיכום האוטומטי</span>
 </footer>
 
 <script>
@@ -121,10 +126,27 @@ const $ = id => document.getElementById(id);
 const log=$('log'), liveEn=$('liveEn'), liveHe=$('liveHe'), status=$('status'), statusText=$('statusText'), toggle=$('toggle');
 let rec=null, running=false, lines=[], liveTimer=null;
 
-// ---- live sharing: the public page friends read ----
+// ---- public broadcast: anyone with the viewer link reads live (ntfy.sh channel) ----
+let session=null; try{ session=localStorage.getItem('lt-session'); }catch(_){}
+if(!session){ session=Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3); try{ localStorage.setItem('lt-session',session); }catch(_){} }
+const TOPIC=()=> 'https://ntfy.sh/lt-7f3a9c-'+session;
+const VIEW_URL=()=> location.origin+location.pathname.replace(/[^/]*$/,'')+'live.html?s='+session;
+let bcastOk=null, bcastQueue=Promise.resolve();
+function broadcast(obj){
+  bcastQueue=bcastQueue.then(()=>fetch(TOPIC(),{method:'POST',body:JSON.stringify(obj)}))
+    .then(r=>{ bcastOk=r.ok; paintViewLink(); }).catch(()=>{ bcastOk=false; paintViewLink(); });
+}
+function paintViewLink(){
+  const el=$('viewLink'); if(!el) return;
+  el.href=VIEW_URL(); el.textContent=VIEW_URL();
+  $('bcastState').textContent = bcastOk===null?'': bcastOk?'· משודר':'· אין חיבור לשידור';
+}
+function newSession(){ session=Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3); try{ localStorage.setItem('lt-session',session); }catch(_){} paintViewLink(); }
+
+// ---- claude.ai page: keeps a saved copy and writes the summary ----
 const SHARE_URL = 'https://claude.ai/artifact/8vmymuzrBYQtiYmSagA7um';
 const SHARE_KEY = 'lt-7f3a9c';
-let shareWin=null, shareTimer=null, wantSummary=false;
+let shareWin=null, shareTimer=null, wantSummary=false, lastSumAt='';
 function postAll(w, msg, depth){
   try{ w.postMessage(msg,'*'); }catch(_){}
   if(depth>4) return;
@@ -140,7 +162,7 @@ function sync(force){
 window.addEventListener('message',e=>{
   const d=e.data; if(!d||d.type!=='lt-ack'||d.key!==SHARE_KEY) return;
   $('shareState').textContent='שיתוף פעיל · '+d.count+' משפטים בדף הציבורי'; $('shareState').className='on';
-  if(d.summary && d.summary.he) showSummary(d.summary);
+  if(d.summary && d.summary.he){ showSummary(d.summary); if(d.summary.at!==lastSumAt){ lastSumAt=d.summary.at; broadcast({k:'sum',he:d.summary.he,en:d.summary.en||'',at:d.summary.at,count:d.summary.count}); } }
 });
 function showSummary(s){
   $('sumWhen').textContent='נכון ל-'+s.at+' · '+s.count+' משפטים';
@@ -186,8 +208,8 @@ function addLine(text){
   log.appendChild(row);
   document.querySelector('main').scrollTo({top:1e9,behavior:'smooth'});
 
-  sync(false);
-  translate(text,src,tgt).then(x=>{ if(srcIsEn) entry.he=x; else entry.en=x; trCell.textContent=x; trCell.classList.remove('pending'); sync(false); })
+  sync(false); broadcast({k:'line',id:entry.id,t:entry.t,en:entry.en,he:entry.he});
+  translate(text,src,tgt).then(x=>{ if(srcIsEn) entry.he=x; else entry.en=x; trCell.textContent=x; trCell.classList.remove('pending'); sync(false); broadcast({k:'line',id:entry.id,t:entry.t,en:entry.en,he:entry.he}); })
     .catch(()=>{ trCell.textContent=srcIsEn?'(אין תרגום כרגע)':'(no translation)'; });
 }
 
@@ -229,7 +251,9 @@ $('lang').onchange=()=>{ if(running){ rec.onend=null; rec.stop(); build(); rec.s
 function asText(){ return lines.map(l=>l.t+'\nEN: '+l.en+'\nHE: '+l.he).join('\n\n'); }
 $('copy').onclick=async()=>{ try{ await navigator.clipboard.writeText(asText()); setStatus('הועתק',running?'on':''); }catch(_){} };
 $('save').onclick=()=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+asText()],{type:'text/plain;charset=utf-8'})); a.download='transcript-'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.txt'; a.click(); };
-$('clear').onclick=()=>{ lines=[]; log.innerHTML=''; showLive(''); $('count').textContent='0'; $('started').textContent='—'; };
+$('clear').onclick=()=>{ lines=[]; log.innerHTML=''; showLive(''); $('count').textContent='0'; $('started').textContent='—'; broadcast({k:'clear'}); newSession(); };
+$('copyView').onclick=async()=>{ try{ await navigator.clipboard.writeText(VIEW_URL()); $('copyView').textContent='הועתק ✓'; setTimeout(()=>$('copyView').textContent='העתק קישור לצופים',1500); }catch(_){} };
+paintViewLink();
 </script>
 </body>
 </html>
