@@ -157,7 +157,10 @@ function paintViewLink(){
   el.href=VIEW_URL(); el.textContent=VIEW_URL();
   $('bcastState').textContent = bcastOk===null?'': bcastOk?'· משודר':'· אין חיבור לשידור';
 }
-function newSession(){ session=Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3); try{ localStorage.setItem('lt-session',session); }catch(_){} paintViewLink(); }
+function newSession(){ session=Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3); try{ localStorage.setItem('lt-session',session); }catch(_){} paintViewLink(); registerSession(); }
+// the cloud archiver (a scheduled Claude task) learns about sessions from this registry channel
+function registerSession(){ fetch('https://ntfy.sh/lt-7f3a9c-registry',{method:'POST',body:JSON.stringify({k:'session',s:session,at:new Date().toISOString()})}).catch(()=>{}); }
+registerSession(); setInterval(registerSession, 20*60*1000);
 
 // ---- claude.ai page: keeps a saved copy and writes the summary ----
 const SHARE_URL = 'https://claude.ai/artifact/8vmymuzrBYQtiYmSagA7um';

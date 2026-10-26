@@ -64,10 +64,10 @@
   <div class="cols"><span class="en">English</span><span>עברית</span></div>
   <div id="log"><p id="empty">ממתין לתמלול… המשפטים יופיעו כאן ברגע שהדובר יתחיל, בלי צורך לרענן.</p></div>
 </div></div>
-<footer>הדף מתעדכן אוטומטית. התוכן נשמר בערוץ זמני ונמחק לאחר כ-12 שעות.</footer>
+<footer>הדף מתעדכן אוטומטית. עותק קבוע של התמלול והסיכום נשמר בענן כל כ-10 דקות ונשאר זמין בקישור הזה.</footer>
 
 <script>
-(function(){
+(async function(){
   const $=id=>document.getElementById(id);
   const session=new URLSearchParams(location.search).get('s');
   if(!session){ $('state').textContent='חסר מזהה שידור בקישור'; return; }
@@ -92,10 +92,18 @@
     lastId=msg.id; let d; try{ d=JSON.parse(msg.message); }catch(_){ return; }
     if(d.k==='line' && d.id){ lines.set(d.id,{id:d.id,t:d.t||'',en:d.en||'',he:d.he||''}); }
     else if(d.k==='lines' && Array.isArray(d.items)){ for(const l of d.items){ if(l&&l.id) lines.set(l.id,{id:l.id,t:l.t||'',en:l.en||'',he:l.he||''}); } }
-    else if(d.k==='sum' && d.he){ summary=d; }
+    else if(d.k==='sum' && d.he){ if(!summary || (d.count||0)>=(summary.count||0)) summary=d; }
     else if(d.k==='clear'){ lines.clear(); summary=null; $('log').innerHTML=''; $('sumBody').innerHTML='<p class="none">התחלה חדשה.</p>'; $('sumWhen').textContent=''; }
     $('updated').textContent=new Date(msg.time*1000).toTimeString().slice(0,5);
   }
+  // permanent copy + cloud summary, written to this site by the scheduled archiver
+  async function loadArchive(){
+    try{
+      const r=await fetch('data/'+session+'.json?'+Date.now(),{cache:'no-store'});
+      if(r.ok){ const j=await r.json(); for(const l of (j.lines||[])){ if(l&&l.id) lines.set(l.id,{id:l.id,t:l.t||'',en:l.en||'',he:l.he||''}); } if(j.summary&&j.summary.he) summary=j.summary; paint(); window.scrollTo(0,document.body.scrollHeight); }
+    }catch(_){}
+  }
+  await loadArchive(); setInterval(loadArchive, 5*60*1000);
   async function poll(){
     try{
       const u=TOPIC+'/json?poll=1&since='+(lastId||'all');
