@@ -35,20 +35,21 @@
 
   main{flex:1;overflow:auto;padding:18px 20px 40px}
   .sheet{max-width:1080px;margin:0 auto;background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px -18px rgba(0,0,0,.35);overflow:hidden}
-  details.sum{border-bottom:1px solid var(--line);background:var(--amber-soft)}
-  details.sum summary{list-style:none;cursor:pointer;padding:13px 22px;display:flex;align-items:center;gap:12px;font-weight:700;font-size:15px}
-  details.sum summary::-webkit-details-marker{display:none}
-  details.sum summary::before{content:"▸";color:var(--amber);transition:transform .2s}
-  details.sum[open] summary::before{transform:rotate(90deg)}
-  details.sum summary .when{margin-inline-start:auto;font-weight:400;font-size:12px;color:var(--muted)}
-  .sumbody{padding:0 22px 16px;display:grid;grid-template-columns:1fr 1fr;gap:14px 32px}
-  .sumbody p{margin:0;line-height:1.7;font-size:16px;white-space:pre-wrap}
-  .sumbody .en{direction:ltr;text-align:left;font-family:var(--eng);color:var(--en)}
-  .sumbody .he{color:var(--he)}
-  .sumbody .none{grid-column:1/-1;color:var(--muted);font-size:14px;margin:0}
-  .sumbody .act{grid-column:1/-1;display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-  .sumbody button{border-color:var(--amber);color:var(--amber);background:transparent;font-size:13px;padding:6px 12px}
-  .sumbody button:hover{background:color-mix(in srgb,var(--amber) 12%,transparent)}
+  .work{max-width:1080px;margin:0 auto;display:grid;grid-template-columns:1fr;gap:18px;align-items:start}
+  body.sum-open .work{max-width:1440px;grid-template-columns:minmax(0,1fr) 400px}
+  aside#sumPanel{display:none;position:sticky;top:0;background:var(--amber-soft);border:1px solid var(--line);border-radius:14px;padding:16px 20px 18px;max-height:calc(100vh - 220px);overflow:auto}
+  body.sum-open aside#sumPanel{display:block}
+  aside#sumPanel h2{margin:0 0 4px;font-family:var(--disp);font-weight:500;font-size:22px}
+  aside#sumPanel .when{font-size:12px;color:var(--muted);margin-bottom:12px}
+  aside#sumPanel p{margin:0 0 12px;line-height:1.7;font-size:15px;white-space:pre-wrap}
+  aside#sumPanel .en{direction:ltr;text-align:left;font-family:var(--eng);color:var(--en);border-top:1px dashed var(--line);padding-top:10px}
+  aside#sumPanel .he{color:var(--he)}
+  aside#sumPanel .none{color:var(--muted);font-size:14px}
+  aside#sumPanel .act{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:6px}
+  aside#sumPanel button{border-color:var(--amber);color:var(--amber);background:transparent;font-size:13px;padding:6px 12px}
+  aside#sumPanel button:hover{background:color-mix(in srgb,var(--amber) 12%,transparent)}
+  aside#sumPanel #sumState{font-size:12px;color:var(--muted)}
+  button.on{background:var(--amber);border-color:var(--amber);color:#1a1208}
   .cols{display:grid;grid-template-columns:1fr 1fr;gap:0 32px;padding:12px 22px 8px;border-bottom:2px solid var(--line);position:sticky;top:0;background:var(--paper);z-index:1}
   .cols span{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:500}
   .cols .en{direction:ltr;text-align:left;font-family:var(--eng)}
@@ -73,13 +74,13 @@
 
   @media (max-width:760px){
     header .in{padding:12px 16px} main{padding:12px 12px 32px}
-    .cols,.row,#live,.sumbody{grid-template-columns:1fr;gap:6px 0}
+    .cols,.row,#live{grid-template-columns:1fr;gap:6px 0}
+    body.sum-open .work{grid-template-columns:1fr} aside#sumPanel{position:static;max-height:none}
     .cols .en{display:none}
     .cell{font-size:18px}
     .cell.en{border-bottom:1px dashed var(--line);padding-bottom:6px}
   }
   @media (prefers-reduced-motion:no-preference){ .row{animation:in .25s ease-out} }
-  @media (prefers-reduced-motion:reduce){ details.sum summary::before{transition:none} }
   @keyframes in{from{opacity:.3;transform:translateY(4px)}to{opacity:1;transform:none}}
 </style>
 </head>
@@ -92,24 +93,27 @@
     <option value="he-IL|en">הדובר מדבר עברית → אנגלית</option>
   </select>
   <button id="toggle" class="primary">התחל</button>
+  <button id="sumToggle">סיכום ההרצאה</button>
   <button id="share">פתח שיתוף</button>
   <button id="copy">העתק</button>
+  <button id="importBtn">ייבוא קובץ</button><input id="importFile" type="file" accept=".txt,text/plain" hidden>
   <button id="save">שמור קובץ</button>
   <button id="clear">נקה</button>
 </div></header>
 
 <main>
-  <div class="sheet">
-    <details class="sum">
-      <summary>סיכום מתכלל עד כאן <span class="when" id="sumWhen"></span></summary>
-      <div class="sumbody" id="sumBody">
-        <p class="none">הסיכום נוצר בדף השיתוף (דרך Claude) ומתעדכן כל כמה דקות. אפשר לבקש אותו גם עכשיו.</p>
-        <div class="act"><button id="sumNow" type="button">סכם עד כאן</button><span id="sumState"></span></div>
-      </div>
-    </details>
-    <div class="cols"><span class="en">English</span><span>עברית</span></div>
-    <div id="log"><p id="empty">לחצי <b>התחל</b> ואשרי את המיקרופון פעם אחת.<br>כל משפט שמסתיים מופיע כאן: המקור באנגלית משמאל והתרגום לעברית מימין. הטקסט הכתום הוא מה שנשמע ברגע זה.<br>כל משפט משודר מיד ל<b>קישור לצופים</b> (למטה) — כל מי שפותח אותו רואה את התמלול בזמן אמת. <b>פתח שיתוף</b> מוסיף סיכום מתכלל אוטומטי.</p></div>
-    <div id="live"><div class="cell en" id="liveEn"></div><div class="cell he" id="liveHe"></div></div>
+  <div class="work">
+    <div class="sheet">
+      <div class="cols"><span class="en">English</span><span>עברית</span></div>
+      <div id="log"><p id="empty">לחצי <b>התחל</b> ואשרי את המיקרופון פעם אחת.<br>כל משפט שמסתיים מופיע כאן: המקור באנגלית משמאל והתרגום לעברית מימין. הטקסט הכתום הוא מה שנשמע ברגע זה.<br>כל משפט משודר ל<b>קישור לצופים</b> (למטה). <b>סיכום ההרצאה</b> פותח פאנל סיכום מתכלל לצד התרגום.</p></div>
+      <div id="live"><div class="cell en" id="liveEn"></div><div class="cell he" id="liveHe"></div></div>
+    </div>
+    <aside id="sumPanel">
+      <h2>סיכום ההרצאה עד כאן</h2>
+      <div class="when" id="sumWhen">עדיין לא נוצר סיכום</div>
+      <div id="sumBody"><p class="none">הסיכום נוצר דרך Claude בחלון "תמלול חי" (נפתח אוטומטית בלחיצה). בפעם הראשונה החלון יבקש אישור — לאשרי.</p></div>
+      <div class="act"><button id="sumNow" type="button">סכם עכשיו</button><button id="sumAuto" type="button">עדכון אוטומטי: כבוי</button><span id="sumState"></span></div>
+    </aside>
   </div>
 </main>
 
@@ -133,10 +137,20 @@ let session=null; try{ session=localStorage.getItem('lt-session'); }catch(_){}
 if(!session){ session=Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3); try{ localStorage.setItem('lt-session',session); }catch(_){} }
 const TOPIC=()=> 'https://ntfy.sh/lt-7f3a9c-'+session;
 const VIEW_URL=()=> location.origin+location.pathname.replace(/[^/]*$/,'')+'live.html?s='+session;
-let bcastOk=null, bcastQueue=Promise.resolve();
-function broadcast(obj){
+let bcastOk=null, bcastQueue=Promise.resolve(), dirty=new Map(), bcastTimer=null;
+function send(obj){
   bcastQueue=bcastQueue.then(()=>fetch(TOPIC(),{method:'POST',body:JSON.stringify(obj)}))
     .then(r=>{ bcastOk=r.ok; paintViewLink(); }).catch(()=>{ bcastOk=false; paintViewLink(); });
+}
+// lines are batched: one message every ~8s (the free channel rate-limits bursts)
+function broadcast(obj){
+  if(obj.k==='line'){ dirty.set(obj.id,obj); if(!bcastTimer) bcastTimer=setTimeout(flushBroadcast, 8000); return; }
+  send(obj);
+}
+function flushBroadcast(){
+  bcastTimer=null; if(!dirty.size) return;
+  const items=[...dirty.values()]; dirty.clear();
+  for(let i=0;i<items.length;i+=8) send({k:'lines',items:items.slice(i,i+8)});
 }
 function paintViewLink(){
   const el=$('viewLink'); if(!el) return;
@@ -164,16 +178,29 @@ function sync(force){
 window.addEventListener('message',e=>{
   const d=e.data; if(!d||d.type!=='lt-ack'||d.key!==SHARE_KEY) return;
   $('shareState').textContent='שיתוף פעיל · '+d.count+' משפטים בדף הציבורי'; $('shareState').className='on';
-  if(d.summary && d.summary.he){ showSummary(d.summary); if(d.summary.at!==lastSumAt){ lastSumAt=d.summary.at; broadcast({k:'sum',he:d.summary.he,en:d.summary.en||'',at:d.summary.at,count:d.summary.count}); } }
+  if(d.summary && d.summary.he){ if(!lastSummary || d.summary.at!==lastSummary.at){ clearInterval(sumWait); wantSummary=false; } showSummary(d.summary); if(d.summary.at!==lastSumAt){ lastSumAt=d.summary.at; broadcast({k:'sum',he:d.summary.he,en:d.summary.en||'',at:d.summary.at,count:d.summary.count}); } }
 });
+let lastSummary=null; try{ lastSummary=JSON.parse(localStorage.getItem('lt-summary')||'null'); }catch(_){}
 function showSummary(s){
+  lastSummary=s; try{ localStorage.setItem('lt-summary',JSON.stringify(s)); }catch(_){}
   $('sumWhen').textContent='נכון ל-'+s.at+' · '+s.count+' משפטים';
-  $('sumBody').innerHTML='<p class="he"></p><p class="en"></p><div class="act"><button id="sumNow" type="button">סכם שוב עד כאן</button><span id="sumState"></span></div>';
+  $('sumBody').innerHTML='<p class="he"></p><p class="en"></p>';
   $('sumBody').querySelector('.he').textContent=s.he; $('sumBody').querySelector('.en').textContent=s.en||'';
-  document.querySelector('details.sum').open=true; wireSum();
+  $('sumState').textContent='';
 }
-function wireSum(){ $('sumNow').onclick=()=>{ if(!shareWin||shareWin.closed){ $('sumState').textContent='קודם לחצי "פתח שיתוף"'; return; } if(!lines.length){ $('sumState').textContent='עדיין אין מה לסכם'; return; } wantSummary=true; $('sumState').textContent='מסכם… (כ-20 שניות)'; sync(true); }; }
-wireSum();
+if(lastSummary && lastSummary.he) showSummary(lastSummary);
+let sumAuto=false, sumAutoTimer=null, sumWait=null;
+function requestSummary(){
+  if(!lines.length){ $('sumState').textContent='עדיין אין מה לסכם'; return; }
+  if(!shareWin||shareWin.closed) openShare();
+  wantSummary=true; $('sumState').textContent='מסכם… (כ-20–40 שניות)';
+  let tries=0; clearInterval(sumWait);
+  sumWait=setInterval(()=>{ tries++; if(!wantSummary||tries>15){ clearInterval(sumWait); if(wantSummary){ $('sumState').textContent='אין תשובה מחלון "תמלול חי" — ודאי שהוא פתוח ומחובר ל-claude.ai'; } return; } sync(true); wantSummary=true; },3000);
+  sync(true);
+}
+$('sumNow').onclick=requestSummary;
+$('sumToggle').onclick=()=>{ document.body.classList.toggle('sum-open'); $('sumToggle').classList.toggle('on',document.body.classList.contains('sum-open')); if(document.body.classList.contains('sum-open') && !lastSummary && lines.length) requestSummary(); };
+$('sumAuto').onclick=()=>{ sumAuto=!sumAuto; $('sumAuto').textContent='עדכון אוטומטי: '+(sumAuto?'כל 4 דקות':'כבוי'); clearInterval(sumAutoTimer); if(sumAuto) sumAutoTimer=setInterval(()=>{ if(lines.length) requestSummary(); },240000); };
 function openShare(){
   if(shareWin && !shareWin.closed){ shareWin.focus(); return; }
   shareWin=window.open(SHARE_URL,'lt-share');
@@ -198,22 +225,50 @@ function addLine(text){
   const e=$('empty'); if(e) e.remove();
   const {src,tgt}=dir(); const srcIsEn=src.startsWith('en');
   const t=now(); const entry={id:Date.now(),t,en:srcIsEn?text:'',he:srcIsEn?'':text}; lines.push(entry);
-  $('count').textContent=lines.length;
-  if(lines.length===1) $('started').textContent=t;
-
-  const row=document.createElement('div'); row.className='row';
-  row.innerHTML='<time></time><div class="cell en"></div><div class="cell he"></div>';
-  row.querySelector('time').textContent=t;
-  const enCell=row.querySelector('.en'), heCell=row.querySelector('.he');
-  const srcCell=srcIsEn?enCell:heCell, trCell=srcIsEn?heCell:enCell;
-  srcCell.textContent=text; trCell.textContent='…'; trCell.classList.add('pending');
-  log.appendChild(row);
-  document.querySelector('main').scrollTo({top:1e9,behavior:'smooth'});
-
+  const trCell=renderRow(entry, srcIsEn); persist();
   sync(false); broadcast({k:'line',id:entry.id,t:entry.t,en:entry.en,he:entry.he});
-  translate(text,src,tgt).then(x=>{ if(srcIsEn) entry.he=x; else entry.en=x; trCell.textContent=x; trCell.classList.remove('pending'); sync(false); broadcast({k:'line',id:entry.id,t:entry.t,en:entry.en,he:entry.he}); })
+  translate(text,src,tgt).then(x=>{ if(srcIsEn) entry.he=x; else entry.en=x; trCell.textContent=x; trCell.classList.remove('pending'); persist(); sync(false); broadcast({k:'line',id:entry.id,t:entry.t,en:entry.en,he:entry.he}); })
     .catch(()=>{ trCell.textContent=srcIsEn?'(אין תרגום כרגע)':'(no translation)'; });
 }
+function renderRow(entry, srcIsEn){
+  const e=$('empty'); if(e) e.remove();
+  $('count').textContent=lines.length;
+  if(lines.length===1) $('started').textContent=entry.t;
+  const row=document.createElement('div'); row.className='row';
+  row.innerHTML='<time></time><div class="cell en"></div><div class="cell he"></div>';
+  row.querySelector('time').textContent=entry.t;
+  const enCell=row.querySelector('.en'), heCell=row.querySelector('.he');
+  enCell.textContent=entry.en; heCell.textContent=entry.he;
+  const trCell=srcIsEn?heCell:enCell;
+  if(!trCell.textContent){ trCell.textContent='…'; trCell.classList.add('pending'); }
+  log.appendChild(row);
+  document.querySelector('main').scrollTo({top:1e9,behavior:'smooth'});
+  return trCell;
+}
+// everything is kept in this browser, so a refresh never loses the transcript
+function persist(){ try{ localStorage.setItem('lt-lines',JSON.stringify(lines)); }catch(_){} }
+function restore(){
+  let saved=[]; try{ saved=JSON.parse(localStorage.getItem('lt-lines')||'[]'); }catch(_){}
+  if(!Array.isArray(saved)||!saved.length) return;
+  lines=[]; for(const l of saved){ if(l&&l.id){ lines.push(l); renderRow(l, !!l.en); } }
+  setStatus('שוחזרו '+lines.length+' משפטים מהפעם הקודמת');
+}
+function importText(txt){
+  const blocks=txt.replace(/^\ufeff/,'').split(/\n\s*\n/); let n=0;
+  for(const b of blocks){
+    const m=b.match(/^(\d\d:\d\d:\d\d)\s*\nEN: ?(.*)\nHE: ?(.*)$/s); if(!m) continue;
+    const [h,mi,se]=m[1].split(':').map(Number); const d=new Date(); d.setHours(h,mi,se,0);
+    const entry={id:d.getTime()+n, t:m[1], en:m[2].trim(), he:m[3].trim()};
+    if(lines.some(l=>l.t===entry.t && l.en===entry.en)) continue;
+    lines.push(entry); n++;
+  }
+  lines.sort((a,b)=>a.id-b.id); log.innerHTML=''; for(const l of lines) renderRow(l, !!l.en);
+  persist(); for(const l of lines) broadcast({k:'line',id:l.id,t:l.t,en:l.en,he:l.he});
+  setStatus('יובאו '+n+' משפטים');
+}
+$('importBtn').onclick=()=>$('importFile').click();
+$('importFile').onchange=e=>{ const f=e.target.files[0]; if(!f) return; f.text().then(importText); e.target.value=''; };
+restore();
 
 function showLive(text){
   const srcIsEn=dir().src.startsWith('en');
@@ -261,7 +316,7 @@ $('lang').onchange=()=>{ if(running){ rec.onend=null; rec.stop(); build(); rec.s
 function asText(){ return lines.map(l=>l.t+'\nEN: '+l.en+'\nHE: '+l.he).join('\n\n'); }
 $('copy').onclick=async()=>{ try{ await navigator.clipboard.writeText(asText()); setStatus('הועתק',running?'on':''); }catch(_){} };
 $('save').onclick=()=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+asText()],{type:'text/plain;charset=utf-8'})); a.download='transcript-'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.txt'; a.click(); };
-$('clear').onclick=()=>{ lines=[]; log.innerHTML=''; showLive(''); $('count').textContent='0'; $('started').textContent='—'; broadcast({k:'clear'}); newSession(); };
+$('clear').onclick=()=>{ if(lines.length && !window.confirm('למחוק את כל '+lines.length+' המשפטים ולהתחיל שידור חדש? (כדאי קודם \"שמור קובץ\")')) return; lines=[]; log.innerHTML=''; showLive(''); $('count').textContent='0'; $('started').textContent='—'; persist(); lastSummary=null; try{ localStorage.removeItem('lt-summary'); }catch(_){} $('sumBody').innerHTML='<p class=\"none\">התחלה חדשה.</p>'; $('sumWhen').textContent=''; broadcast({k:'clear'}); newSession(); };
 $('copyView').onclick=async()=>{ try{ await navigator.clipboard.writeText(VIEW_URL()); $('copyView').textContent='הועתק ✓'; setTimeout(()=>$('copyView').textContent='העתק קישור לצופים',1500); }catch(_){} };
 paintViewLink();
 </script>

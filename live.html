@@ -91,6 +91,7 @@
     if(!msg || msg.event!=='message') return;
     lastId=msg.id; let d; try{ d=JSON.parse(msg.message); }catch(_){ return; }
     if(d.k==='line' && d.id){ lines.set(d.id,{id:d.id,t:d.t||'',en:d.en||'',he:d.he||''}); }
+    else if(d.k==='lines' && Array.isArray(d.items)){ for(const l of d.items){ if(l&&l.id) lines.set(l.id,{id:l.id,t:l.t||'',en:l.en||'',he:l.he||''}); } }
     else if(d.k==='sum' && d.he){ summary=d; }
     else if(d.k==='clear'){ lines.clear(); summary=null; $('log').innerHTML=''; $('sumBody').innerHTML='<p class="none">התחלה חדשה.</p>'; $('sumWhen').textContent=''; }
     $('updated').textContent=new Date(msg.time*1000).toTimeString().slice(0,5);
