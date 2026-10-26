@@ -124,7 +124,7 @@
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 const $ = id => document.getElementById(id);
 const log=$('log'), liveEn=$('liveEn'), liveHe=$('liveHe'), status=$('status'), statusText=$('statusText'), toggle=$('toggle');
-let rec=null, running=false, lines=[], liveTimer=null;
+let rec=null, running=false, lines=[], liveTimer=null, micStream=null;
 
 // ---- public broadcast: anyone with the viewer link reads live (ntfy.sh channel) ----
 let session=null; try{ session=localStorage.getItem('lt-session'); }catch(_){}
@@ -240,9 +240,10 @@ function build(){
 
 toggle.onclick=async()=>{
   if(!SR){ setStatus('הדפדפן הזה לא תומך בזיהוי דיבור — יש להשתמש ב-Chrome','err'); return; }
-  if(running){ running=false; rec.stop(); toggle.textContent='התחל'; toggle.classList.remove('stop'); return; }
-  setStatus('מבקש גישה למיקרופון…');
-  try{ const s=await navigator.mediaDevices.getUserMedia({audio:true}); s.getTracks().forEach(t=>t.stop()); }
+  if(running){ running=false; rec.stop(); if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream=null; } toggle.textContent='התחל'; toggle.classList.remove('stop'); return; }
+  setStatus('מבקש גישה למיקרופון… בחרי "אפשר בכל ביקור"');
+  // keep the stream open for the whole session: Chrome then never asks again, even after a one-time allow
+  try{ micStream=await navigator.mediaDevices.getUserMedia({audio:true}); }
   catch(e){ setStatus('המיקרופון חסום ('+e.name+'). סמל המנעול בשורת הכתובת → מיקרופון → אפשר; וגם הגדרות מק → פרטיות ואבטחה → מיקרופון → Chrome','err'); return; }
   running=true; toggle.textContent='עצור'; toggle.classList.add('stop'); build(); rec.start();
 };
