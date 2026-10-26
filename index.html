@@ -245,8 +245,15 @@ toggle.onclick=async()=>{
   if(running){ running=false; rec.stop(); if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream=null; } toggle.textContent='התחל'; toggle.classList.remove('stop'); return; }
   setStatus('מבקש גישה למיקרופון… בחרי "אפשר בכל ביקור"');
   // keep the stream open for the whole session: Chrome then never asks again, even after a one-time allow
-  try{ micStream=await navigator.mediaDevices.getUserMedia({audio:true}); }
-  catch(e){ setStatus('המיקרופון חסום ('+e.name+'). סמל המנעול בשורת הכתובת → מיקרופון → אפשר; וגם הגדרות מק → פרטיות ואבטחה → מיקרופון → Chrome','err'); return; }
+  try{
+    micStream=await Promise.race([
+      navigator.mediaDevices.getUserMedia({audio:true}),
+      new Promise((_,rej)=>setTimeout(()=>rej(Object.assign(new Error('timeout'),{name:'Timeout'})),6000))
+    ]);
+  }catch(e){
+    if(e.name==='Timeout'){ setStatus('לא התקבלה תשובה על המיקרופון — מנסה להתחיל בכל זאת. אם נתקע: הגדרות מק → פרטיות ואבטחה → מיקרופון → Chrome','err'); }
+    else { setStatus('המיקרופון חסום ('+e.name+'). סמל המנעול בשורת הכתובת → מיקרופון → אפשר; וגם הגדרות מק → פרטיות ואבטחה → מיקרופון → Chrome','err'); return; }
+  }
   running=true; toggle.textContent='עצור'; toggle.classList.add('stop'); build(); rec.start();
 };
 $('lang').onchange=()=>{ if(running){ rec.onend=null; rec.stop(); build(); rec.start(); } };
