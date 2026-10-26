@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>תמלול ותרגום חי</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+  /* Layout: two reading columns, English on the left, Hebrew on the right, one row per sentence */
+  :root{
+    --bg:#f5f3ee; --fg:#1b1a17; --muted:#6f6b60; --panel:#ffffff; --line:#e2dfd5;
+    --en:#163f6b; --he:#0f6b4a; --live:#b85c1e; --danger:#a1203c;
+    --heb:"Heebo",-apple-system,"Segoe UI",Arial,sans-serif;
+    --eng:"Source Serif 4",Georgia,"Times New Roman",serif;
+    --mono:"SF Mono",Menlo,Consolas,monospace;
+  }
+  @media (prefers-color-scheme:dark){
+    :root{ --bg:#141518; --fg:#ebe8e0; --muted:#9b978c; --panel:#1d1f24; --line:#30333a;
+           --en:#8ab8ea; --he:#5dcf9f; --live:#f0a059; --danger:#fb7185; color-scheme:dark }
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--heb);display:flex;flex-direction:column}
+
+  header{position:sticky;top:0;z-index:5;background:var(--panel);border-bottom:1px solid var(--line);padding:12px 24px;display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+  header h1{margin:0 0 0 auto;font-size:17px;font-weight:700;letter-spacing:.2px}
+  header h1 small{font-weight:400;color:var(--muted);margin-inline-start:8px;font-size:13px}
+  #status{display:flex;align-items:center;gap:7px;font-size:13px;color:var(--muted);max-width:40ch}
+  #status .dot{width:9px;height:9px;border-radius:50%;background:var(--muted);flex:none}
+  #status.on .dot{background:var(--live);box-shadow:0 0 0 4px color-mix(in srgb,var(--live) 25%,transparent)}
+  #status.err{color:var(--danger)}
+  button,select{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--panel);color:var(--fg);padding:8px 14px;border-radius:8px;cursor:pointer}
+  button.primary{background:var(--he);color:#fff;border-color:var(--he);font-weight:700;min-width:84px}
+  button.primary.stop{background:var(--danger);border-color:var(--danger)}
+  button:focus-visible,select:focus-visible{outline:2px solid var(--he);outline-offset:2px}
+
+  main{flex:1;overflow:auto;padding:16px 24px 48px}
+  .sheet{max-width:1180px;margin:0 auto}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:0 32px;position:sticky;top:0;background:var(--bg);padding:10px 0 6px;border-bottom:2px solid var(--line);margin-bottom:6px}
+  .cols span{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);font-weight:500}
+  .cols .en{direction:ltr;text-align:left;font-family:var(--eng)}
+  .cols .he{text-align:right}
+
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:0 32px;padding:12px 0;border-bottom:1px solid var(--line);position:relative}
+  .row time{position:absolute;top:14px;inset-inline-end:calc(100% + 10px);font-family:var(--mono);font-size:11px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .cell{font-size:20px;line-height:1.55;min-width:0;overflow-wrap:anywhere}
+  .cell.en{direction:ltr;text-align:left;font-family:var(--eng);color:var(--en)}
+  .cell.he{direction:rtl;text-align:right;color:var(--he)}
+  .cell.pending{color:var(--muted);font-style:italic;font-size:16px}
+
+  #live{display:grid;grid-template-columns:1fr 1fr;gap:0 32px;padding:14px 0 6px;min-height:3.2em}
+  #live .cell{color:var(--live);font-style:italic}
+  #empty{color:var(--muted);text-align:center;margin:14vh auto 0;max-width:46ch;line-height:1.7;font-size:15px}
+
+  footer{border-top:1px solid var(--line);padding:10px 24px;font-size:12px;color:var(--muted);display:flex;gap:16px;flex-wrap:wrap}
+  footer b{color:var(--fg);font-weight:500}
+
+  @media (max-width:760px){
+    header{padding:10px 16px} main{padding:12px 16px 40px}
+    .cols,.row,#live{grid-template-columns:1fr;gap:6px 0}
+    .cols .en{display:none}
+    .row time{position:static;display:block;margin-bottom:4px}
+    .cell{font-size:18px}
+    .cell.en{border-bottom:1px dashed var(--line);padding-bottom:6px}
+  }
+  @media (prefers-reduced-motion:no-preference){ .row{animation:in .25s ease-out} }
+  @keyframes in{from{opacity:.3;transform:translateY(4px)}to{opacity:1;transform:none}}
+</style>
+</head>
+<body>
+<header>
+  <h1>תמלול ותרגום חי <small>English ⇄ עברית</small></h1>
+  <span id="status"><span class="dot"></span><span id="statusText">לא מאזין</span></span>
+  <select id="lang" title="כיוון">
+    <option value="en-US|he" selected>הדובר מדבר אנגלית → תרגום לעברית</option>
+    <option value="he-IL|en">הדובר מדבר עברית → תרגום לאנגלית</option>
+  </select>
+  <button id="toggle" class="primary">התחל</button>
+  <button id="share">פתח שיתוף</button>
+  <button id="copy">העתק</button>
+  <button id="save">שמור קובץ</button>
+  <button id="clear">נקה</button>
+</header>
+
+<main>
+  <div class="sheet">
+    <div class="cols"><span class="en">English</span><span class="he">עברית</span></div>
+    <div id="log"><p id="empty">לחצי <b>התחל</b> ואשרי את המיקרופון פעם אחת.<br>כל משפט שמסתיים מופיע כאן: המקור באנגלית משמאל והתרגום לעברית מימין. הטקסט הכתום הוא מה שנשמע ברגע זה.</p></div>
+    <div id="live"><div class="cell en" id="liveEn"></div><div class="cell he" id="liveHe"></div></div>
+  </div>
+</main>
+
+<footer>
+  <span>משפטים: <b id="count">0</b></span>
+  <span>התחלה: <b id="started">—</b></span>
+  <span id="shareState">שיתוף לא פעיל — "פתח שיתוף" פותח את הדף הציבורי שהחברים קוראים</span>
+  <span>עובד בכרום בלבד · פתחי דרך http://localhost ולא מהקובץ ישירות, אחרת כרום מבקש מיקרופון שוב ושוב</span>
+</footer>
+
+<script>
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+const $ = id => document.getElementById(id);
+const log=$('log'), liveEn=$('liveEn'), liveHe=$('liveHe'), status=$('status'), statusText=$('statusText'), toggle=$('toggle');
+let rec=null, running=false, lines=[], liveTimer=null;
+
+// ---- live sharing: the public page friends read ----
+const SHARE_URL = 'https://claude.ai/artifact/8vmymuzrBYQtiYmSagA7um';
+const SHARE_KEY = 'lt-7f3a9c';
+let shareWin=null, acked=-1, shareTimer=null;
+function postAll(w, msg, depth){
+  try{ w.postMessage(msg,'*'); }catch(_){}
+  if(depth>4) return;
+  let n=0; try{ n=w.length; }catch(_){ n=0; }
+  for(let i=0;i<n;i++){ try{ postAll(w[i], msg, depth+1); }catch(_){} }
+}
+function sync(force){
+  if(!shareWin || shareWin.closed){ $('shareState').textContent='השיתוף סגור — לחצי "פתח שיתוף"'; return; }
+  const payload=lines.map(l=>({id:l.id,t:l.t,en:l.en,he:l.he}));
+  postAll(shareWin,{type:'lt-sync',key:SHARE_KEY,lines:payload,force:!!force},0);
+}
+window.addEventListener('message',e=>{ const d=e.data; if(d&&d.type==='lt-ack'&&d.key===SHARE_KEY){ acked=d.count; $('shareState').textContent='שיתוף פעיל · '+d.count+' משפטים בדף הציבורי'; } });
+function openShare(){
+  if(shareWin && !shareWin.closed){ shareWin.focus(); return; }
+  shareWin=window.open(SHARE_URL,'lt-share');
+  if(!shareWin){ $('shareState').textContent='הדפדפן חסם את החלון — אפשרי חלונות קופצים ל-localhost'; return; }
+  $('shareState').textContent='נפתח דף השיתוף… (השאירי אותו פתוח)';
+  clearInterval(shareTimer); shareTimer=setInterval(()=>sync(false),4000);
+}
+$('share').onclick=openShare;
+
+function setStatus(t, cls){ statusText.textContent=t; status.className=cls||''; }
+function now(){ return new Date().toTimeString().slice(0,8); }
+function dir(){ const [src,tgt]=$('lang').value.split('|'); return {src,tgt}; }
+
+async function translate(text, src, tgt){
+  const u='https://translate.googleapis.com/translate_a/single?client=gtx&dt=t&sl='+src.slice(0,2)+'&tl='+tgt+'&q='+encodeURIComponent(text);
+  const r=await fetch(u); if(!r.ok) throw new Error(r.status);
+  const j=await r.json(); return j[0].map(x=>x[0]).join('');
+}
+
+function addLine(text){
+  text=text.trim(); if(!text) return;
+  const e=$('empty'); if(e) e.remove();
+  const {src,tgt}=dir(); const srcIsEn=src.startsWith('en');
+  const t=now(); const entry={id:Date.now(),t,en:srcIsEn?text:'',he:srcIsEn?'':text}; lines.push(entry);
+  $('count').textContent=lines.length;
+  if(lines.length===1) $('started').textContent=t;
+
+  const row=document.createElement('div'); row.className='row';
+  row.innerHTML='<time></time><div class="cell en"></div><div class="cell he"></div>';
+  row.querySelector('time').textContent=t;
+  const enCell=row.querySelector('.en'), heCell=row.querySelector('.he');
+  const srcCell=srcIsEn?enCell:heCell, trCell=srcIsEn?heCell:enCell;
+  srcCell.textContent=text; trCell.textContent='…'; trCell.classList.add('pending');
+  log.appendChild(row);
+  document.querySelector('main').scrollTo({top:1e9,behavior:'smooth'});
+
+  sync(false);
+  translate(text,src,tgt).then(x=>{ if(srcIsEn) entry.he=x; else entry.en=x; trCell.textContent=x; trCell.classList.remove('pending'); sync(false); })
+    .catch(()=>{ trCell.textContent=srcIsEn?'(אין תרגום כרגע)':'(no translation)'; });
+}
+
+function showLive(text){
+  const srcIsEn=dir().src.startsWith('en');
+  (srcIsEn?liveEn:liveHe).textContent=text;
+  clearTimeout(liveTimer);
+  if(text.length>12){ liveTimer=setTimeout(()=>translate(text,dir().src,dir().tgt).then(x=>{ (srcIsEn?liveHe:liveEn).textContent=x; }).catch(()=>{}),700); }
+  if(!text){ liveEn.textContent=''; liveHe.textContent=''; }
+}
+
+function build(){
+  rec=new SR();
+  rec.lang=dir().src; rec.continuous=true; rec.interimResults=true; rec.maxAlternatives=1;
+  rec.onstart=()=>setStatus('מאזין ('+rec.lang+')','on');
+  rec.onresult=e=>{
+    let interim='';
+    for(let i=e.resultIndex;i<e.results.length;i++){ const r=e.results[i]; if(r.isFinal) addLine(r[0].transcript); else interim+=r[0].transcript; }
+    showLive(interim);
+  };
+  rec.onerror=e=>{
+    if(e.error==='no-speech'||e.error==='aborted') return;
+    setStatus('שגיאה: '+e.error+(e.error==='not-allowed'?' — אשרי מיקרופון בסמל המנעול בשורת הכתובת':''),'err');
+    if(e.error==='not-allowed'||e.error==='service-not-allowed'){ running=false; toggle.textContent='התחל'; toggle.classList.remove('stop'); }
+  };
+  rec.onend=()=>{ showLive(''); if(running){ try{rec.start();}catch(_){ setTimeout(()=>{ if(running) rec.start(); },300);} } else setStatus('לא מאזין'); };
+}
+
+toggle.onclick=async()=>{
+  if(!SR){ setStatus('הדפדפן הזה לא תומך בזיהוי דיבור — יש להשתמש ב-Chrome','err'); return; }
+  if(running){ running=false; rec.stop(); toggle.textContent='התחל'; toggle.classList.remove('stop'); return; }
+  setStatus('מבקש גישה למיקרופון…');
+  try{ const s=await navigator.mediaDevices.getUserMedia({audio:true}); s.getTracks().forEach(t=>t.stop()); }
+  catch(e){ setStatus('המיקרופון חסום ('+e.name+'). סמל המנעול בשורת הכתובת → מיקרופון → אפשר; וגם הגדרות מק → פרטיות ואבטחה → מיקרופון → Chrome','err'); return; }
+  running=true; toggle.textContent='עצור'; toggle.classList.add('stop'); build(); rec.start();
+};
+$('lang').onchange=()=>{ if(running){ rec.onend=null; rec.stop(); build(); rec.start(); } };
+
+function asText(){ return lines.map(l=>l.t+'\nEN: '+l.en+'\nHE: '+l.he).join('\n\n'); }
+$('copy').onclick=async()=>{ try{ await navigator.clipboard.writeText(asText()); setStatus('הועתק',running?'on':''); }catch(_){} };
+$('save').onclick=()=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+asText()],{type:'text/plain;charset=utf-8'})); a.download='transcript-'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.txt'; a.click(); };
+$('clear').onclick=()=>{ lines=[]; log.innerHTML=''; showLive(''); $('count').textContent='0'; $('started').textContent='—'; };
+</script>
+</body>
+</html>
