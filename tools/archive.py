@@ -63,6 +63,8 @@ def merge_session(session):
             items.append(d)
         elif k == 'lines':
             items.extend(x for x in d.get('items', []) if isinstance(x, dict) and x.get('id'))
+        elif k == 'meta' and d.get('title'):
+            doc['title'] = d['title']
         elif k == 'sum' and d.get('he'):
             cur = doc.get('summary') or {}
             if d.get('count', 0) >= cur.get('count', 0):
@@ -97,6 +99,8 @@ def main():
             if d.get('k') == 'session' and d.get('s'):
                 sessions.add(d['s'])
                 index.setdefault(d['s'], {'first_seen': d.get('at', '')})
+                if d.get('title'):
+                    index[d['s']]['title'] = d['title']
     except Exception as e:
         print('registry fetch failed:', e, file=sys.stderr)
     need = []
@@ -106,6 +110,8 @@ def main():
         except Exception as e:
             print('session', s, 'failed:', e, file=sys.stderr)
             continue
+        if doc.get('title') and not index.get(s, {}).get('title'):
+            index.setdefault(s, {})['title'] = doc['title']
         index[s] = {**index.get(s, {}), 'lines': len(doc['lines']), 'updated': doc.get('updated', ''), 'summary_count': (doc.get('summary') or {}).get('count', 0)}
         n = len(doc['lines'])
         sc = (doc.get('summary') or {}).get('count', 0)

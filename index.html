@@ -21,6 +21,8 @@
   header{background:var(--ink);color:var(--ink-fg);flex:none}
   header .in{max-width:1120px;margin:0 auto;padding:18px 20px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
   header h1{margin:0 auto 0 0;font-family:var(--disp);font-weight:500;font-size:26px;line-height:1.1}
+  header h1 #title{display:block;font-family:var(--heb);font-size:15px;font-weight:500;color:var(--amber);margin-top:6px;cursor:pointer;min-height:1em}
+  header h1 #title:empty::before{content:"ללא שם — לחצי לתת שם להרצאה";color:rgba(255,255,255,.45);font-weight:400}
   header h1 small{display:block;font-family:var(--eng);font-size:11px;letter-spacing:.18em;text-transform:uppercase;opacity:.7;margin-top:4px;direction:ltr;text-align:right}
   #status{display:flex;align-items:center;gap:7px;font-size:13px;opacity:.9;max-width:44ch;line-height:1.3}
   #status .dot{width:9px;height:9px;border-radius:50%;background:#8a8f99;flex:none}
@@ -86,7 +88,7 @@
 </head>
 <body>
 <header><div class="in">
-  <h1>תמלול ותרגום חי<small>English → Hebrew · live</small></h1>
+  <h1>תמלול ותרגום חי<small>English → Hebrew · live</small><span id="title" title="לחיצה לשינוי שם ההרצאה"></span></h1>
   <span id="status"><span class="dot"></span><span id="statusText">לא מאזין</span></span>
   <select id="lang" title="כיוון">
     <option value="en-US|he" selected>הדובר מדבר אנגלית → עברית</option>
@@ -159,7 +161,13 @@ function paintViewLink(){
 }
 function newSession(){ session=Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3); try{ localStorage.setItem('lt-session',session); }catch(_){} paintViewLink(); registerSession(); }
 // the cloud archiver (a scheduled Claude task) learns about sessions from this registry channel
-function registerSession(){ fetch('https://ntfy.sh/lt-7f3a9c-registry',{method:'POST',body:JSON.stringify({k:'session',s:session,at:new Date().toISOString()})}).catch(()=>{}); }
+// lecture title: asked for when the recording starts, shown in the header, sent to viewers and to the archive
+function getTitle(){ try{ return localStorage.getItem('lt-title:'+session)||''; }catch(_){ return ''; } }
+function setTitle(t){ t=(t||'').trim(); try{ localStorage.setItem('lt-title:'+session,t); }catch(_){} $('title').textContent=t; document.title=t?t+' — תמלול חי':'תמלול ותרגום חי'; registerSession(); if(t) broadcast({k:'meta',title:t}); }
+function askTitle(force){ const cur=getTitle(); if(cur&&!force) return cur; const t=window.prompt('שם ההרצאה (יופיע בכותרת, אצל הצופים ובארכיון):',cur||''); if(t===null) return cur; setTitle(t); return t.trim(); }
+$('title').onclick=()=>askTitle(true);
+$('title').textContent=getTitle(); if(getTitle()) document.title=getTitle()+' — תמלול חי';
+function registerSession(){ fetch('https://ntfy.sh/lt-7f3a9c-registry',{method:'POST',body:JSON.stringify({k:'session',s:session,title:getTitle(),at:new Date().toISOString()})}).catch(()=>{}); }
 registerSession(); setInterval(registerSession, 20*60*1000);
 
 // ---- claude.ai page: keeps a saved copy and writes the summary ----
@@ -362,6 +370,7 @@ toggle.onclick=async()=>{
     if(e.name==='Timeout'){ setStatus('לא התקבלה תשובה על המיקרופון — מנסה להתחיל בכל זאת. אם נתקע: הגדרות מק → פרטיות ואבטחה → מיקרופון → Chrome','err'); }
     else { setStatus('המיקרופון חסום ('+e.name+'). סמל המנעול בשורת הכתובת → מיקרופון → אפשר; וגם הגדרות מק → פרטיות ואבטחה → מיקרופון → Chrome','err'); return; }
   }
+  if(!getTitle()) askTitle(false);
   running=true; toggle.textContent='עצור'; toggle.classList.add('stop'); build(); rec.start();
 };
 $('lang').onchange=()=>{ if(running){ rec.onend=null; rec.stop(); build(); rec.start(); } };

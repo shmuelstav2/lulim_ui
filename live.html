@@ -53,7 +53,7 @@
 </head>
 <body>
 <div class="band"><div class="in">
-  <h1>תמלול חי<small>English → Hebrew · live transcript</small></h1>
+  <h1 id="h1">תמלול חי<small>English → Hebrew · live transcript</small></h1>
   <div class="meta"><span>משפטים <b id="count">0</b></span><span>עדכון אחרון <b id="updated">—</b></span><span id="state">מתחבר…</span></div>
 </div></div>
 <div class="wrap"><div class="sheet">
@@ -84,6 +84,7 @@
   }
   const TOPIC='https://ntfy.sh/lt-7f3a9c-'+session;
   const lines=new Map(); let lastId=null, summary=null, failures=0;
+  function setTitle(t){ if(!t) return; $('h1').firstChild.textContent=t; document.title=t+' — תמלול חי'; }
   const esc=s=>String(s==null?'':s);
   function paint(){
     const arr=[...lines.values()].sort((a,b)=>a.id-b.id);
@@ -104,6 +105,7 @@
     if(d.k==='line' && d.id){ lines.set(d.id,{id:d.id,t:d.t||'',en:d.en||'',he:d.he||''}); }
     else if(d.k==='lines' && Array.isArray(d.items)){ for(const l of d.items){ if(l&&l.id) lines.set(l.id,{id:l.id,t:l.t||'',en:l.en||'',he:l.he||''}); } }
     else if(d.k==='sum' && d.he){ if(!summary || (d.count||0)>=(summary.count||0)) summary=d; }
+    else if(d.k==='meta' && d.title){ setTitle(d.title); }
     else if(d.k==='clear'){ lines.clear(); summary=null; $('log').innerHTML=''; $('sumBody').innerHTML='<p class="none">התחלה חדשה.</p>'; $('sumWhen').textContent=''; }
     $('updated').textContent=new Date(msg.time*1000).toTimeString().slice(0,5);
   }
@@ -111,7 +113,7 @@
   async function loadArchive(){
     try{
       const r=await fetch('data/'+session+'.json?'+Date.now(),{cache:'no-store'});
-      if(r.ok){ const j=await r.json(); for(const l of (j.lines||[])){ if(l&&l.id) lines.set(l.id,{id:l.id,t:l.t||'',en:l.en||'',he:l.he||''}); } if(j.summary&&j.summary.he) summary=j.summary; paint(); window.scrollTo(0,document.body.scrollHeight); }
+      if(r.ok){ const j=await r.json(); if(j.title) setTitle(j.title); for(const l of (j.lines||[])){ if(l&&l.id) lines.set(l.id,{id:l.id,t:l.t||'',en:l.en||'',he:l.he||''}); } if(j.summary&&j.summary.he) summary=j.summary; paint(); window.scrollTo(0,document.body.scrollHeight); }
     }catch(_){}
   }
   await loadArchive(); setInterval(loadArchive, 5*60*1000);
