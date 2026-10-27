@@ -241,7 +241,13 @@ async function pollCloudSummary(){
     const r=await fetch(TOPIC()+'/json?poll=1&since='+(lastSeenId||'all'),{cache:'no-store'}); if(!r.ok) return;
     const t=await r.text(); let newest=null;
     for(const l of t.split('\n').filter(Boolean)){ try{ const m=JSON.parse(l); if(m.event!=='message') continue; lastSeenId=m.id; const d=JSON.parse(m.message); if(d.k==='sum'&&d.he&&(!newest||(d.count||0)>=(newest.count||0))) newest=d; }catch(_){} }
-    if(newest && (!lastSummary || newest.at!==lastSummary.at || newest.count!==lastSummary.count)){ showSummary({he:newest.he,en:newest.en||'',at:newest.at||'',count:newest.count||0}); $('sumState').textContent='הסיכום הגיע מהענן'; }
+    if(newest && (!lastSummary || (newest.count||0)>(lastSummary.count||0))){ showSummary({he:newest.he,en:newest.en||'',at:newest.at||'',count:newest.count||0}); $('sumState').textContent='הסיכום הגיע מהענן'; }
+  }catch(_){}
+  // the site itself keeps the permanent copy — use it too
+  try{
+    const r=await fetch('data/'+session+'.json?'+Date.now(),{cache:'no-store'}); if(!r.ok) return;
+    const j=await r.json(); const sm=j.summary;
+    if(sm && sm.he && (!lastSummary || (sm.count||0)>(lastSummary.count||0))){ showSummary({he:sm.he,en:sm.en||'',at:sm.at||'',count:sm.count||0}); $('sumState').textContent='הסיכום הגיע מהענן'; }
   }catch(_){}
 }
 pollCloudSummary(); setInterval(pollCloudSummary, 15000);
