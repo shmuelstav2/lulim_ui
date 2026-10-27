@@ -111,7 +111,7 @@
     <aside id="sumPanel">
       <h2>סיכום ההרצאה עד כאן</h2>
       <div class="when" id="sumWhen">עדיין לא נוצר סיכום</div>
-      <div id="sumBody"><p class="none">הסיכום נוצר כאן בדף, מתוך כל התמלול עד הרגע. בפעם הראשונה תתבקשי להדביק מפתח API (Anthropic או Gemini) — הוא נשמר בדפדפן הזה בלבד.</p></div>
+      <div id="sumBody"><p class="none">הסיכום מגיע מהענן (Claude מסכם את התמלול כל כמה דקות ושולח לכאן ולצופים). "סכם עכשיו" מייצר סיכום מיידי בדף — דורש מפתח API פעם אחת.</p></div>
       <div class="act"><button id="sumNow" type="button">סכם עכשיו</button><button id="sumAuto" type="button">עדכון אוטומטי: כבוי</button><button id="sumKey" type="button">מפתח API</button><span id="sumState"></span></div>
     </aside>
   </div>
@@ -234,6 +234,17 @@ async function requestSummary(){
   } finally { summarizing=false; }
 }
 $('sumKey').onclick=()=>{ askKey(); $('sumState').textContent=apiKey()?'המפתח נשמר':''; };
+// summaries can also arrive from the cloud (Claude's scheduled task posts them to this session's channel)
+let lastSeenId=null;
+async function pollCloudSummary(){
+  try{
+    const r=await fetch(TOPIC()+'/json?poll=1&since='+(lastSeenId||'all'),{cache:'no-store'}); if(!r.ok) return;
+    const t=await r.text(); let newest=null;
+    for(const l of t.split('\n').filter(Boolean)){ try{ const m=JSON.parse(l); if(m.event!=='message') continue; lastSeenId=m.id; const d=JSON.parse(m.message); if(d.k==='sum'&&d.he&&(!newest||(d.count||0)>=(newest.count||0))) newest=d; }catch(_){} }
+    if(newest && (!lastSummary || newest.at!==lastSummary.at || newest.count!==lastSummary.count)){ showSummary({he:newest.he,en:newest.en||'',at:newest.at||'',count:newest.count||0}); $('sumState').textContent='הסיכום הגיע מהענן'; }
+  }catch(_){}
+}
+pollCloudSummary(); setInterval(pollCloudSummary, 15000);
 $('sumNow').onclick=requestSummary;
 $('sumToggle').onclick=()=>{ document.body.classList.toggle('sum-open'); $('sumToggle').classList.toggle('on',document.body.classList.contains('sum-open')); if(document.body.classList.contains('sum-open') && !lastSummary && lines.length) requestSummary(); };
 $('sumAuto').onclick=()=>{ sumAuto=!sumAuto; $('sumAuto').textContent='עדכון אוטומטי: '+(sumAuto?'כל 4 דקות':'כבוי'); clearInterval(sumAutoTimer); if(sumAuto) sumAutoTimer=setInterval(()=>{ if(lines.length) requestSummary(); },240000); };
