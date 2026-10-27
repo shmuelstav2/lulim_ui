@@ -94,7 +94,7 @@
   </select>
   <button id="toggle" class="primary">התחל</button>
   <button id="sumToggle">סיכום ההרצאה</button>
-  <button id="share">פתח שיתוף</button>
+  <button id="share" hidden>פתח שיתוף</button>
   <button id="copy">העתק</button>
   <button id="importBtn">ייבוא קובץ</button><input id="importFile" type="file" accept=".txt,text/plain" hidden>
   <button id="save">שמור קובץ</button>
@@ -105,14 +105,14 @@
   <div class="work">
     <div class="sheet">
       <div class="cols"><span class="en">English</span><span>עברית</span></div>
-      <div id="log"><p id="empty">לחצי <b>התחל</b> ואשרי את המיקרופון פעם אחת.<br>כל משפט שמסתיים מופיע כאן: המקור באנגלית משמאל והתרגום לעברית מימין. הטקסט הכתום הוא מה שנשמע ברגע זה.<br>כל משפט משודר ל<b>קישור לצופים</b> (למטה). <b>סיכום ההרצאה</b> פותח פאנל סיכום מתכלל לצד התרגום.</p></div>
+      <div id="log"><p id="empty">לחצי <b>התחל</b> ואשרי את המיקרופון פעם אחת.<br>כל משפט שמסתיים מופיע כאן: המקור באנגלית משמאל והתרגום לעברית מימין. הטקסט הכתום הוא מה שנשמע ברגע זה.<br>כל משפט משודר ל<b>קישור לצופים</b> (למטה). <b>סיכום ההרצאה</b> פותח פאנל סיכום מתכלל לצד התרגום (נוצר בדף עצמו, עם מפתח API שמדביקים פעם אחת).</p></div>
       <div id="live"><div class="cell en" id="liveEn"></div><div class="cell he" id="liveHe"></div></div>
     </div>
     <aside id="sumPanel">
       <h2>סיכום ההרצאה עד כאן</h2>
       <div class="when" id="sumWhen">עדיין לא נוצר סיכום</div>
-      <div id="sumBody"><p class="none">הסיכום נוצר דרך Claude בחלון "תמלול חי" (נפתח אוטומטית בלחיצה). בפעם הראשונה החלון יבקש אישור — לאשרי.</p></div>
-      <div class="act"><button id="sumNow" type="button">סכם עכשיו</button><button id="sumAuto" type="button">עדכון אוטומטי: כבוי</button><span id="sumState"></span></div>
+      <div id="sumBody"><p class="none">הסיכום נוצר כאן בדף, מתוך כל התמלול עד הרגע. בפעם הראשונה תתבקשי להדביק מפתח API (Anthropic או Gemini) — הוא נשמר בדפדפן הזה בלבד.</p></div>
+      <div class="act"><button id="sumNow" type="button">סכם עכשיו</button><button id="sumAuto" type="button">עדכון אוטומטי: כבוי</button><button id="sumKey" type="button">מפתח API</button><span id="sumState"></span></div>
     </aside>
   </div>
 </main>
@@ -121,7 +121,7 @@
   <span>משפטים: <b id="count">0</b></span>
   <span>התחלה: <b id="started">—</b></span>
   <span class="viewer">קישור לצופים: <a id="viewLink" href="#" target="_blank" rel="noopener"></a> <span id="bcastState"></span> <button id="copyView" type="button">העתק קישור לצופים</button></span>
-  <span id="shareState">סיכום: לחצי "פתח שיתוף" כדי להפעיל את הסיכום האוטומטי</span>
+  <span id="shareState" hidden></span>
 </footer>
 
 <script>
@@ -173,7 +173,7 @@ function postAll(w, msg, depth){
   for(let i=0;i<n;i++){ try{ postAll(w[i], msg, depth+1); }catch(_){} }
 }
 function sync(force){
-  if(!shareWin || shareWin.closed){ $('shareState').textContent='השיתוף סגור — לחצי "פתח שיתוף"'; $('shareState').className=''; return; }
+  if(!shareWin || shareWin.closed){ return; }
   const payload=lines.map(l=>({id:l.id,t:l.t,en:l.en,he:l.he}));
   postAll(shareWin,{type:'lt-sync',key:SHARE_KEY,lines:payload,force:!!force,wantSummary},0);
   wantSummary=false;
@@ -192,15 +192,48 @@ function showSummary(s){
   $('sumState').textContent='';
 }
 if(lastSummary && lastSummary.he) showSummary(lastSummary);
-let sumAuto=false, sumAutoTimer=null, sumWait=null;
-function requestSummary(){
-  if(!lines.length){ $('sumState').textContent='עדיין אין מה לסכם'; return; }
-  if(!shareWin||shareWin.closed) openShare();
-  wantSummary=true; $('sumState').textContent='מסכם… (כ-20–40 שניות)';
-  let tries=0; clearInterval(sumWait);
-  sumWait=setInterval(()=>{ tries++; if(!wantSummary||tries>15){ clearInterval(sumWait); if(wantSummary){ $('sumState').textContent='אין תשובה מחלון "תמלול חי" — ודאי שהוא פתוח ומחובר ל-claude.ai'; } return; } sync(true); wantSummary=true; },3000);
-  sync(true);
+let sumAuto=false, sumAutoTimer=null, sumWait=null, summarizing=false;
+// ---- summary: generated right here, with an API key the user pastes once (Anthropic "sk-ant-…" or Google Gemini "AIza…") ----
+function apiKey(){ try{ return localStorage.getItem('lt-apikey')||''; }catch(_){ return ''; } }
+function askKey(){
+  const k=window.prompt('כדי ליצור סיכום בדף עצמו צריך מפתח API (נשמר רק בדפדפן הזה):\n• Anthropic: console.anthropic.com → API Keys (מתחיל ב-sk-ant-)\n• או Google Gemini: aistudio.google.com → Get API key (מתחיל ב-AIza)\n\nהדביקי את המפתח:', apiKey());
+  if(k===null) return apiKey();
+  try{ localStorage.setItem('lt-apikey',k.trim()); }catch(_){}
+  return k.trim();
 }
+async function llmSummarize(text){
+  const key=apiKey();
+  const prompt='Below is a running transcript of a lecture (English speaker; some lines may be Hebrew). Write a cumulative summary of everything said so far: the main points, decisions and open questions, in order. Be concrete and faithful; do not invent. Return JSON only, no markdown: {"he": "<summary in Hebrew, 5-10 short sentences or bullet lines>", "en": "<the same summary in English>"}\n\nTRANSCRIPT:\n'+text;
+  let out='';
+  if(key.startsWith('sk-ant-')){
+    const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:'claude-sonnet-4-5',max_tokens:1500,messages:[{role:'user',content:prompt}]})});
+    if(!r.ok) throw new Error('Anthropic '+r.status+': '+(await r.text()).slice(0,200));
+    const j=await r.json(); out=(j.content||[]).map(c=>c.text||'').join('');
+  } else if(key.startsWith('AIza')){
+    const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+encodeURIComponent(key),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseMimeType:'application/json'}})});
+    if(!r.ok) throw new Error('Gemini '+r.status+': '+(await r.text()).slice(0,200));
+    const j=await r.json(); out=((j.candidates||[])[0]||{}).content?.parts?.map(p=>p.text||'').join('')||'';
+  } else throw new Error('nokey');
+  const m=out.match(/\{[\s\S]*\}/); if(!m) throw new Error('bad answer');
+  return JSON.parse(m[0]);
+}
+async function requestSummary(){
+  if(!lines.length){ $('sumState').textContent='עדיין אין מה לסכם'; return; }
+  if(summarizing) return;
+  if(!apiKey()){ if(!askKey()){ $('sumState').textContent='בלי מפתח אין סיכום בדף; אפשר גם להעתיק את התמלול ולבקש סיכום ב-Claude'; return; } }
+  summarizing=true; $('sumState').textContent='מסכם… (כ-10–30 שניות)';
+  try{
+    const text=lines.map(l=>l.en||l.he).join('\n');
+    const r=await llmSummarize(text);
+    const sum={he:String(r.he||''),en:String(r.en||''),at:new Date().toTimeString().slice(0,5),count:lines.length};
+    showSummary(sum); broadcast({k:'sum',he:sum.he,en:sum.en,at:sum.at,count:sum.count});
+  }catch(e){
+    if(String(e.message)==='nokey'){ $('sumState').textContent='המפתח לא מזוהה — לחצי "מפתח API" והדביקי מפתח של Anthropic או Gemini'; }
+    else if(/401|403|invalid|API key/i.test(e.message)){ $('sumState').textContent='המפתח נדחה — בדקי אותו ב"מפתח API"'; }
+    else $('sumState').textContent='הסיכום נכשל: '+e.message.slice(0,120);
+  } finally { summarizing=false; }
+}
+$('sumKey').onclick=()=>{ askKey(); $('sumState').textContent=apiKey()?'המפתח נשמר':''; };
 $('sumNow').onclick=requestSummary;
 $('sumToggle').onclick=()=>{ document.body.classList.toggle('sum-open'); $('sumToggle').classList.toggle('on',document.body.classList.contains('sum-open')); if(document.body.classList.contains('sum-open') && !lastSummary && lines.length) requestSummary(); };
 $('sumAuto').onclick=()=>{ sumAuto=!sumAuto; $('sumAuto').textContent='עדכון אוטומטי: '+(sumAuto?'כל 4 דקות':'כבוי'); clearInterval(sumAutoTimer); if(sumAuto) sumAutoTimer=setInterval(()=>{ if(lines.length) requestSummary(); },240000); };
