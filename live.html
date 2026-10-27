@@ -70,7 +70,18 @@
 (async function(){
   const $=id=>document.getElementById(id);
   const session=new URLSearchParams(location.search).get('s');
-  if(!session){ $('state').textContent='חסר מזהה שידור בקישור'; return; }
+  if(!session){
+    // no session in the link: list the lectures kept on this site
+    $('state').textContent='ארכיון';
+    try{
+      const idx=await (await fetch('data/index.json?'+Date.now(),{cache:'no-store'})).json();
+      const keys=Object.keys(idx).sort((a,b)=>(idx[b].updated||'').localeCompare(idx[a].updated||''));
+      $('log').innerHTML=keys.length?'':'<p id="empty">עדיין אין הרצאות שמורות.</p>';
+      for(const k of keys){ const a=document.createElement('a'); a.className='row'; a.href='live.html?s='+k; a.style.textDecoration='none'; a.style.color='inherit'; a.innerHTML='<time></time><div class="cell he"></div><div class="cell en"></div>'; a.querySelector('time').textContent=(idx[k].updated||'').slice(0,16).replace('T',' '); a.querySelector('.he').textContent=idx[k].title||k; a.querySelector('.en').textContent=(idx[k].lines||0)+' lines'; $('log').appendChild(a); }
+      document.querySelector('details.sum').remove();
+    }catch(_){ $('state').textContent='חסר מזהה שידור בקישור'; }
+    return;
+  }
   const TOPIC='https://ntfy.sh/lt-7f3a9c-'+session;
   const lines=new Map(); let lastId=null, summary=null, failures=0;
   const esc=s=>String(s==null?'':s);
