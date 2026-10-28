@@ -148,7 +148,7 @@
       if(r.ok){ const j=await r.json(); if(j.title) setTitle(j.title); for(const l of (j.lines||[])){ if(l&&l.id) lines.set(l.id,{id:l.id,t:l.t||'',en:l.en||'',he:l.he||''}); } if(j.summary&&j.summary.he) summary=j.summary; paint(); window.scrollTo(0,document.body.scrollHeight); }
     }catch(_){}
   }
-  await loadArchive(); setInterval(loadArchive, 5*60*1000);
+  await loadArchive(); setInterval(loadArchive, 60*1000);
   // direct link to the speaker's page (peer-to-peer): instant updates, no relay
   let peerOk=false;
   function applyMsg(d){
