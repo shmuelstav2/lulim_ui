@@ -88,7 +88,7 @@
 <script>
 (async function(){
   const $=id=>document.getElementById(id);
-  let session=new URLSearchParams(location.search).get('s');
+  let session=new URLSearchParams(location.search).get('s'); let lastPeerData=0;
   // the latest lecture on this site (by last update) — used for ?s=latest and for the "newer lecture" banner
   // data/live.json = the lecture being recorded right now (written by the cloud archiver every minute); index.json = fallback
   async function liveSession(){ try{ const l=await (await fetch('data/live.json?'+Date.now(),{cache:'no-store'})).json(); if(l&&l.s){ l.fresh=(Date.now()-Date.parse(l.last_line||l.at||0))<30*60*1000; return l; } }catch(_){} return null; }
@@ -97,7 +97,7 @@
   if(session){ // an old link: jump to the lecture being recorded now; otherwise offer the newest one
     let banner=null;
     async function followLive(){ const l=await latestSession(); if(!l || l.s===session){ if(banner){ banner.remove(); banner=null; } return; }
-      if(l.fresh){ location.replace('live.html?s='+l.s); return; }
+      if(l.fresh && !(Date.now()-lastPeerData<25000)){ switchSession(l.s); return; }
       if(!banner){ banner=document.createElement('a'); banner.style.cssText='display:block;margin:0 16px 10px;padding:10px 14px;border-radius:10px;background:var(--amber-soft);border:1px solid var(--amber);color:inherit;text-decoration:none;font-size:15px;text-align:center'; const w=document.querySelector('.wrap'); w.parentNode.insertBefore(banner,w); }
       banner.href='live.html?s='+l.s; banner.textContent='יש הרצאה חדשה יותר: "'+(l.title||l.s)+'" — לחץ כדי לעבור אליה'; }
     followLive(); setInterval(followLive,60000);
@@ -153,29 +153,35 @@
   let peerOk=false;
   function applyMsg(d){
     if(!d||typeof d!=='object') return;
+    if(d.k==='state'||d.k==='session'){ if(d.session||d.s){ const ns=d.session||d.s; if(ns!==session && /^[a-z0-9]{6,12}$/.test(ns)) switchSession(ns); } if(d.k==='session'){ setTitle(d.title||''); return; } }
     if(d.k==='state'){ if(d.title) setTitle(d.title); for(const l of (d.lines||[])){ if(l&&l.id) lines.set(l.id,{id:l.id,t:l.t||'',en:l.en||'',he:l.he||''}); } if(d.summary&&d.summary.he&&(!summary||(d.summary.count||0)>=(summary.count||0))) summary=d.summary; }
     else if(d.k==='line'&&d.id){ lines.set(d.id,{id:d.id,t:d.t||'',en:d.en||'',he:d.he||''}); }
     else if(d.k==='lines'&&Array.isArray(d.items)){ for(const l of d.items){ if(l&&l.id) lines.set(l.id,{id:l.id,t:l.t||'',en:l.en||'',he:l.he||''}); } }
     else if(d.k==='sum'&&d.he){ if(!summary||(d.count||0)>=(summary.count||0)) summary=d; }
     else if(d.k==='meta'&&d.title){ setTitle(d.title); }
-    else if(d.k==='redirect'&&d.s&&/^[a-z0-9]{6,12}$/.test(d.s)){ location.replace('live.html?s='+d.s); return; }
+    else if(d.k==='redirect'&&d.s&&/^[a-z0-9]{6,12}$/.test(d.s)){ switchSession(d.s); return; }
     else if(d.k==='clear'){ lines.clear(); summary=null; $('log').innerHTML=''; }
     $('updated').textContent=new Date().toTimeString().slice(0,5);
     paint(); window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
   }
-  let lastPeerData=0, peerObj=null;
+  // the speaker starts a new lecture: same link, new content
+  function switchSession(ns){ session=ns; lines.clear(); summary=null; lastId=null; $('log').innerHTML=''; $('sumBody').innerHTML='<p class="none">הרצאה חדשה — הסיכום יופיע כאן תוך כמה דקות.</p>'; $('sumWhen').textContent=''; $('count').textContent='0'; try{ history.replaceState(null,'','live.html?s='+ns); }catch(_){} loadArchive(); }
+  let peerObj=null, tryMain=true;
   function startPeer(){
     if(typeof Peer==='undefined') return;
     try{ if(peerObj) peerObj.destroy(); }catch(_){}
     const p=new Peer({debug:0}); peerObj=p;
+    const target=tryMain?'lt7f3a9c-main':('lt7f3a9c-'+session); // the speaker's stable address first, then this lecture's own
+    let gotOpen=false;
     p.on('open',()=>{
-      const c=p.connect('lt7f3a9c-'+session,{reliable:true});
-      c.on('open',()=>{ peerOk=true; $('state').textContent='לייב — מחובר ישירות לדובר'; $('state').className='on'; });
+      const c=p.connect(target,{reliable:true});
+      c.on('open',()=>{ gotOpen=true; peerOk=true; $('state').textContent='לייב — מחובר ישירות לדובר'; $('state').className='on'; });
       c.on('data',d=>{ lastPeerData=Date.now(); applyMsg(d); });
       c.on('close',()=>{ peerOk=false; setTimeout(startPeer,2000); });
       c.on('error',()=>{});
+      setTimeout(()=>{ if(!gotOpen){ tryMain=!tryMain; startPeer(); } },7000);
     });
-    p.on('error',()=>{ peerOk=false; setTimeout(startPeer,6000); });
+    p.on('error',()=>{ peerOk=false; if(!gotOpen) tryMain=!tryMain; setTimeout(startPeer,4000); });
   }
   startPeer();
   // status reflects data freshness, not the socket: a brief reconnect is invisible to the reader

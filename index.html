@@ -163,7 +163,8 @@ function paintViewLink(){
   el.href=VIEW_URL(); el.textContent=VIEW_URL();
   $('bcastState').textContent = (peerState?'· '+peerState:'') + (bcastOk===null?'': bcastOk?' · ערוץ: משודר':' · ערוץ: חסום');
 }
-function newSession(){ const next=Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3); try{ peerSend({k:'redirect',s:next}); }catch(_){} session=next; session=session||Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3); try{ localStorage.setItem('lt-session',session); }catch(_){} paintViewLink(); registerSession(); conns=[]; startPeer(); }
+function newSession(){ const next=Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3); session=next; try{ localStorage.setItem('lt-session',session); }catch(_){} paintViewLink(); registerSession();
+  if(peerUsingMain && peer && !peer.destroyed){ try{ peerSend({k:'session',s:session,title:''}); }catch(_){} } else { try{ peerSend({k:'redirect',s:session}); }catch(_){} conns=[]; startPeer(); } }
 // the cloud archiver (a scheduled Claude task) learns about sessions from this registry channel
 // lecture title: asked for when the recording starts, shown in the header, sent to viewers and to the archive
 function getTitle(){ try{ return localStorage.getItem('lt-title:'+session)||''; }catch(_){ return ''; } }
@@ -177,12 +178,14 @@ registerSession(); setInterval(registerSession, 20*60*1000);
 // ---- direct live link to the viewers (peer-to-peer, no relay quota): the viewer pages connect straight to this page ----
 let peer=null, conns=[], peerState='';
 function peerStatus(t){ peerState=t; paintViewLink(); }
-function peerPayloadState(){ return {k:'state',title:getTitle(),lines:lines.map(l=>({id:l.id,t:l.t,en:l.en,he:l.he})),summary:lastSummary||null}; }
+function peerPayloadState(){ return {k:'state',session:session,title:getTitle(),lines:lines.map(l=>({id:l.id,t:l.t,en:l.en,he:l.he})),summary:lastSummary||null}; }
+// one stable address for "the speaker's page": viewers follow it across lectures without a new link
+const PEER_MAIN='lt7f3a9c-main'; let peerUsingMain=true;
 function peerSend(msg){ for(const c of conns){ try{ if(c.open) c.send(msg); }catch(_){} } }
 function startPeer(){
   if(typeof Peer==='undefined'){ peerStatus('ספריית החיבור הישיר לא נטענה'); return; }
   try{ if(peer) peer.destroy(); }catch(_){}
-  peer=new Peer('lt7f3a9c-'+session,{debug:0});
+  peer=new Peer(peerUsingMain?PEER_MAIN:('lt7f3a9c-'+session),{debug:0});
   peer.on('open',()=>peerStatus('חיבור ישיר לצופים פעיל'));
   peer.on('connection',c=>{
     conns.push(c);
@@ -191,7 +194,7 @@ function startPeer(){
     c.on('error',()=>{});
   });
   peer.on('disconnected',()=>{ peerStatus('החיבור הישיר נותק — מתחבר מחדש…'); setTimeout(()=>{ try{ peer.reconnect(); }catch(_){ startPeer(); } },3000); });
-  peer.on('error',e=>{ if(e&&e.type==='unavailable-id'){ peerStatus('הדף פתוח גם בלשונית אחרת — סגרי אותה'); setTimeout(startPeer,15000); } else { peerStatus('חיבור ישיר: '+(e&&e.type||'שגיאה')); setTimeout(startPeer,10000); } });
+  peer.on('error',e=>{ if(e&&e.type==='unavailable-id'){ if(peerUsingMain){ peerUsingMain=false; peerStatus('מקליט נוסף פעיל — משתמש בכתובת ייעודית'); setTimeout(startPeer,500); return; } peerStatus('הדף פתוח גם בלשונית אחרת — סגרי אותה'); setTimeout(startPeer,15000); } else { peerStatus('חיבור ישיר: '+(e&&e.type||'שגיאה')); setTimeout(startPeer,10000); } });
 }
 startPeer();
 // ---- claude.ai page: keeps a saved copy and writes the summary ----
