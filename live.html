@@ -56,7 +56,15 @@
   .cell:empty::before{content:"…";color:var(--muted)}
   #empty{color:var(--muted);text-align:center;padding:64px 22px;margin:0 auto;max-width:44ch;line-height:1.7;font-size:15px}
   footer{max-width:1080px;margin:14px auto 0;padding:0 16px;font-size:12px;color:var(--muted)}
-  @media (max-width:900px){ .wrap{grid-template-columns:1fr} aside.sum{position:static;max-height:none;order:-1} }
+  aside.sum h2 .tg{display:none}
+  @media (max-width:900px){
+    .wrap{grid-template-columns:1fr;gap:10px}
+    aside.sum{position:sticky;top:0;z-index:5;order:-1;max-height:48vh;overflow:auto;padding:10px 16px 12px;border-radius:0 0 14px 14px;box-shadow:0 6px 18px rgba(0,0,0,.12)}
+    aside.sum h2{font-size:18px;display:flex;align-items:center;justify-content:space-between;cursor:pointer;margin:0}
+    aside.sum h2 .tg{display:inline-block;font-size:13px;color:var(--muted);font-family:var(--eng)}
+    aside.sum.closed .when, aside.sum.closed #sumBody{display:none}
+    aside.sum.closed{max-height:none;overflow:hidden}
+  }
   @media (max-width:700px){ .band h1{font-size:26px} .cols,.row{grid-template-columns:1fr} .cols .en{display:none} .cell{font-size:17px} .cell.en{border-bottom:1px dashed var(--line);padding-bottom:6px} }
 </style>
 </head>
@@ -69,8 +77,8 @@
   <div class="cols"><span class="en">English</span><span>עברית</span></div>
   <div id="log"><p id="empty">ממתין לתמלול… המשפטים יופיעו כאן ברגע שהדובר יתחיל, בלי צורך לרענן.</p></div>
 </div>
-<aside class="sum">
-  <h2>סיכום ההרצאה עד כאן</h2>
+<aside class="sum" id="sumAside">
+  <h2 id="sumHead">סיכום ההרצאה עד כאן <span class="tg" id="sumTg">הסתר ▲</span></h2>
   <div class="when" id="sumWhen">עדיין לא נוצר סיכום</div>
   <div id="sumBody"><p class="none">הסיכום הכללי מתעדכן כאן לבד כל כמה דקות, מתוך כל מה שנאמר מתחילת ההרצאה.</p></div>
 </aside>
@@ -173,6 +181,11 @@
     setTimeout(poll, 8000);
   }
   poll();
+})();
+(function(){ const a=document.getElementById('sumAside'), h=document.getElementById('sumHead'), t=document.getElementById('sumTg'); if(!a||!h) return;
+  function set(c){ a.classList.toggle('closed',c); t.textContent=c?'הצג ▼':'הסתר ▲'; try{ localStorage.setItem('lt-view-sum',c?'0':'1'); }catch(_){} }
+  let c=false; try{ c=localStorage.getItem('lt-view-sum')==='0'; }catch(_){}
+  set(c); h.addEventListener('click',()=>{ if(window.matchMedia('(max-width:900px)').matches) set(!a.classList.contains('closed')); });
 })();
 </script>
 </body>
