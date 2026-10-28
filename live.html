@@ -172,16 +172,17 @@
     try{ if(peerObj) peerObj.destroy(); }catch(_){}
     const p=new Peer({debug:0}); peerObj=p;
     const target=tryMain?'lt7f3a9c-main':('lt7f3a9c-'+session); // the speaker's stable address first, then this lecture's own
-    let gotOpen=false;
+    let gotOpen=false, settled=false;
+    function fail(){ if(settled) return; settled=true; peerOk=false; if(!gotOpen) tryMain=!tryMain; setTimeout(startPeer,gotOpen?2000:1500); }
     p.on('open',()=>{
       const c=p.connect(target,{reliable:true});
       c.on('open',()=>{ gotOpen=true; peerOk=true; $('state').textContent='לייב — מחובר ישירות לדובר'; $('state').className='on'; });
       c.on('data',d=>{ lastPeerData=Date.now(); applyMsg(d); });
-      c.on('close',()=>{ peerOk=false; setTimeout(startPeer,2000); });
+      c.on('close',fail);
       c.on('error',()=>{});
-      setTimeout(()=>{ if(!gotOpen){ tryMain=!tryMain; startPeer(); } },7000);
+      setTimeout(()=>{ if(!gotOpen) fail(); },7000);
     });
-    p.on('error',()=>{ peerOk=false; if(!gotOpen) tryMain=!tryMain; setTimeout(startPeer,4000); });
+    p.on('error',fail);
   }
   startPeer();
   // status reflects data freshness, not the socket: a brief reconnect is invisible to the reader
