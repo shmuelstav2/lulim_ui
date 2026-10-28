@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>תמלול חי</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;500&family=Heebo:wght@400;500;700&family=Source+Serif+4:wght@400;600&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -117,16 +118,43 @@
     }catch(_){}
   }
   await loadArchive(); setInterval(loadArchive, 5*60*1000);
+  // direct link to the speaker's page (peer-to-peer): instant updates, no relay
+  let peerOk=false;
+  function applyMsg(d){
+    if(!d||typeof d!=='object') return;
+    if(d.k==='state'){ if(d.title) setTitle(d.title); for(const l of (d.lines||[])){ if(l&&l.id) lines.set(l.id,{id:l.id,t:l.t||'',en:l.en||'',he:l.he||''}); } if(d.summary&&d.summary.he&&(!summary||(d.summary.count||0)>=(summary.count||0))) summary=d.summary; }
+    else if(d.k==='line'&&d.id){ lines.set(d.id,{id:d.id,t:d.t||'',en:d.en||'',he:d.he||''}); }
+    else if(d.k==='lines'&&Array.isArray(d.items)){ for(const l of d.items){ if(l&&l.id) lines.set(l.id,{id:l.id,t:l.t||'',en:l.en||'',he:l.he||''}); } }
+    else if(d.k==='sum'&&d.he){ if(!summary||(d.count||0)>=(summary.count||0)) summary=d; }
+    else if(d.k==='meta'&&d.title){ setTitle(d.title); }
+    else if(d.k==='clear'){ lines.clear(); summary=null; $('log').innerHTML=''; }
+    $('updated').textContent=new Date().toTimeString().slice(0,5);
+    paint(); window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
+  }
+  function startPeer(){
+    if(typeof Peer==='undefined') return;
+    const p=new Peer({debug:0});
+    p.on('open',()=>{
+      const c=p.connect('lt7f3a9c-'+session,{reliable:true});
+      c.on('open',()=>{ peerOk=true; $('state').textContent='לייב — מחובר ישירות לדובר'; $('state').className='on'; });
+      c.on('data',applyMsg);
+      c.on('close',()=>{ peerOk=false; $('state').textContent='החיבור לדובר נותק — מנסה שוב'; $('state').className=''; try{ p.destroy(); }catch(_){} setTimeout(startPeer,5000); });
+      c.on('error',()=>{});
+    });
+    p.on('error',e=>{ peerOk=false; if(!(e&&e.type==='peer-unavailable')) { /* keep trying */ } try{ p.destroy(); }catch(_){} setTimeout(startPeer,8000); });
+  }
+  startPeer();
+
   async function poll(){
     try{
       const u=TOPIC+'/json?poll=1&since='+(lastId||'all');
-      const r=await fetch(u,{cache:'no-store'}); if(!r.ok) throw new Error(r.status);
+      const ctl=new AbortController(); const tm=setTimeout(()=>ctl.abort(),8000); const r=await fetch(u,{cache:'no-store',signal:ctl.signal}); clearTimeout(tm); if(!r.ok) throw new Error(r.status);
       const txt=await r.text();
       const before=lastId;
       txt.split('\n').filter(Boolean).forEach(l=>{ try{ ingest(JSON.parse(l)); }catch(_){} });
       if(lastId!==before || lines.size) { paint(); if(lastId!==before) window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'}); }
-      failures=0; $('state').textContent='מחובר'; $('state').className='on';
-    }catch(e){ failures++; $('state').textContent=failures>3?'אין חיבור — מנסה שוב':'מתחבר…'; $('state').className=''; }
+      failures=0; if(!peerOk){ $('state').textContent='מחובר (ערוץ)'; $('state').className='on'; }
+    }catch(e){ failures++; if(!peerOk){ $('state').textContent=failures>3?'ממתין לדובר…':'מתחבר…'; $('state').className=''; } }
     setTimeout(poll, 8000);
   }
   poll();
