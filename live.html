@@ -90,10 +90,17 @@
   const $=id=>document.getElementById(id);
   let session=new URLSearchParams(location.search).get('s');
   // the latest lecture on this site (by last update) — used for ?s=latest and for the "newer lecture" banner
-  async function latestSession(){ try{ const idx=await (await fetch('data/index.json?'+Date.now(),{cache:'no-store'})).json(); const keys=Object.keys(idx).sort((a,b)=>(idx[b].updated||'').localeCompare(idx[a].updated||'')); return keys.length?{s:keys[0],title:idx[keys[0]].title||keys[0],updated:idx[keys[0]].updated||''}:null; }catch(_){ return null; } }
-  if(session==='latest'){ const l=await latestSession(); if(l){ location.replace('live.html?s='+l.s); return; } session=null; }
-  if(session){ // an old link? offer the newest lecture when this one is not the latest
-    (async()=>{ const l=await latestSession(); if(l && l.s!==session){ const b=document.createElement('a'); b.href='live.html?s='+l.s; b.style.cssText='display:block;margin:0 16px 10px;padding:10px 14px;border-radius:10px;background:var(--amber-soft);border:1px solid var(--amber);color:inherit;text-decoration:none;font-size:15px;text-align:center'; b.textContent='יש הרצאה חדשה יותר: "'+l.title+'" — לחץ כדי לעבור אליה'; const w=document.querySelector('.wrap'); w.parentNode.insertBefore(b,w); } })();
+  // data/live.json = the lecture being recorded right now (written by the cloud archiver every minute); index.json = fallback
+  async function liveSession(){ try{ const l=await (await fetch('data/live.json?'+Date.now(),{cache:'no-store'})).json(); if(l&&l.s){ l.fresh=(Date.now()-Date.parse(l.last_line||l.at||0))<30*60*1000; return l; } }catch(_){} return null; }
+  async function latestSession(){ const l=await liveSession(); if(l) return l; try{ const idx=await (await fetch('data/index.json?'+Date.now(),{cache:'no-store'})).json(); const keys=Object.keys(idx).sort((a,b)=>(idx[b].updated||'').localeCompare(idx[a].updated||'')); return keys.length?{s:keys[0],title:idx[keys[0]].title||keys[0],updated:idx[keys[0]].updated||''}:null; }catch(_){ return null; } }
+  if(session==='latest'||session==='live'){ const l=await latestSession(); if(l){ location.replace('live.html?s='+l.s); return; } session=null; }
+  if(session){ // an old link: jump to the lecture being recorded now; otherwise offer the newest one
+    let banner=null;
+    async function followLive(){ const l=await latestSession(); if(!l || l.s===session){ if(banner){ banner.remove(); banner=null; } return; }
+      if(l.fresh){ location.replace('live.html?s='+l.s); return; }
+      if(!banner){ banner=document.createElement('a'); banner.style.cssText='display:block;margin:0 16px 10px;padding:10px 14px;border-radius:10px;background:var(--amber-soft);border:1px solid var(--amber);color:inherit;text-decoration:none;font-size:15px;text-align:center'; const w=document.querySelector('.wrap'); w.parentNode.insertBefore(banner,w); }
+      banner.href='live.html?s='+l.s; banner.textContent='יש הרצאה חדשה יותר: "'+(l.title||l.s)+'" — לחץ כדי לעבור אליה'; }
+    followLive(); setInterval(followLive,60000);
   }
   if(!session){
     // no session in the link: list the lectures kept on this site
