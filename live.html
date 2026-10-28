@@ -141,19 +141,23 @@
     $('updated').textContent=new Date().toTimeString().slice(0,5);
     paint(); window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
   }
+  let lastPeerData=0, peerObj=null;
   function startPeer(){
     if(typeof Peer==='undefined') return;
-    const p=new Peer({debug:0});
+    try{ if(peerObj) peerObj.destroy(); }catch(_){}
+    const p=new Peer({debug:0}); peerObj=p;
     p.on('open',()=>{
       const c=p.connect('lt7f3a9c-'+session,{reliable:true});
       c.on('open',()=>{ peerOk=true; $('state').textContent='לייב — מחובר ישירות לדובר'; $('state').className='on'; });
-      c.on('data',applyMsg);
-      c.on('close',()=>{ peerOk=false; $('state').textContent='החיבור לדובר נותק — מנסה שוב'; $('state').className=''; try{ p.destroy(); }catch(_){} setTimeout(startPeer,5000); });
+      c.on('data',d=>{ lastPeerData=Date.now(); applyMsg(d); });
+      c.on('close',()=>{ peerOk=false; setTimeout(startPeer,2000); });
       c.on('error',()=>{});
     });
-    p.on('error',e=>{ peerOk=false; if(!(e&&e.type==='peer-unavailable')) { /* keep trying */ } try{ p.destroy(); }catch(_){} setTimeout(startPeer,8000); });
+    p.on('error',()=>{ peerOk=false; setTimeout(startPeer,6000); });
   }
   startPeer();
+  // status reflects data freshness, not the socket: a brief reconnect is invisible to the reader
+  setInterval(()=>{ const fresh=Date.now()-lastPeerData<25000; if(fresh){ $('state').textContent='לייב — מחובר ישירות לדובר'; $('state').className='on'; } else if(!peerOk){ $('state').textContent='ממתין לדובר…'; $('state').className=''; } },3000);
 
   async function poll(){
     try{
@@ -163,8 +167,8 @@
       const before=lastId;
       txt.split('\n').filter(Boolean).forEach(l=>{ try{ ingest(JSON.parse(l)); }catch(_){} });
       if(lastId!==before || lines.size) { paint(); if(lastId!==before) window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'}); }
-      failures=0; if(!peerOk){ $('state').textContent='מחובר (ערוץ)'; $('state').className='on'; }
-    }catch(e){ failures++; if(!peerOk){ $('state').textContent=failures>3?'ממתין לדובר…':'מתחבר…'; $('state').className=''; } }
+      failures=0;
+    }catch(e){ failures++; }
     setTimeout(poll, 8000);
   }
   poll();
