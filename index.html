@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>תמלול ותרגום חי</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/microsoft-cognitiveservices-speech-sdk@1.40.0/distrib/browser/microsoft.cognitiveservices.speech.sdk.bundle-min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;500&family=Heebo:wght@400;500;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
 <style>
@@ -147,9 +148,29 @@ function send(obj){
   bcastQueue=bcastQueue.then(()=>fetch(TOPIC(),{method:'POST',body:JSON.stringify(obj)}))
     .then(r=>{ bcastOk=r.ok; paintViewLink(); }).catch(()=>{ bcastOk=false; paintViewLink(); });
 }
+// ---- relay channel (public MQTT broker over WebSocket): every viewer and the cloud summarizer read from it ----
+const MQ_BROKERS=['wss://broker.hivemq.com:8884/mqtt','wss://broker.emqx.io:8084/mqtt']; let mqIdx=0, mq=null, mqOk=false, mqSnapTimer=null;
+const MQ_ROOT='lt7f3a9c';
+function mqPub(topic,obj,retain){ try{ if(mq&&mqOk) mq.publish(topic,JSON.stringify(obj),{qos:0,retain:!!retain}); }catch(_){} }
+function mqSnapshot(){ // retained snapshot: late joiners get the whole lecture at once
+  const ls=lines.slice(-300).map(l=>({id:l.id,t:l.t,en:l.en,he:l.he}));
+  mqPub(MQ_ROOT+'/state/'+session,{k:'state',session:session,title:getTitle(),lines:ls,summary:lastSummary||null,at:Date.now()},true);
+  mqPub(MQ_ROOT+'/live',{k:'live',s:session,title:getTitle(),at:Date.now()},true);
+}
+function startMq(){
+  if(typeof mqtt==='undefined') return;
+  try{ if(mq) mq.end(true); }catch(_){}
+  const url=MQ_BROKERS[mqIdx%MQ_BROKERS.length];
+  mq=mqtt.connect(url,{clientId:'lt-rec-'+Math.random().toString(36).slice(2,10),keepalive:30,reconnectPeriod:0,connectTimeout:8000});
+  mq.on('connect',()=>{ mqOk=true; paintViewLink(); mqSnapshot(); if(!mqSnapTimer) mqSnapTimer=setInterval(()=>{ if(running||dirty.size) mqSnapshot(); },8000); });
+  const down=()=>{ if(mqOk===false&&mq&&!mq.connected){ /* already handled */ } mqOk=false; paintViewLink(); mqIdx++; setTimeout(startMq,3000); };
+  mq.on('close',down); mq.on('error',()=>{}); mq.on('offline',down);
+}
+startMq();
 // lines are batched: one message every ~8s (the free channel rate-limits bursts)
 function broadcast(obj){
   peerSend(obj);
+  if(obj.k==='line') mqPub(MQ_ROOT+'/s/'+session,obj); else mqPub(MQ_ROOT+'/s/'+session,obj);
   if(obj.k==='line'){ dirty.set(obj.id,obj); if(!bcastTimer) bcastTimer=setTimeout(flushBroadcast, 8000); return; }
   send(obj);
 }
@@ -161,14 +182,15 @@ function flushBroadcast(){
 function paintViewLink(){
   const el=$('viewLink'); if(!el) return;
   el.href=VIEW_URL(); el.textContent=VIEW_URL();
-  $('bcastState').textContent = (peerState?'· '+peerState:'') + (bcastOk===null?'': bcastOk?' · ערוץ: משודר':' · ערוץ: חסום');
+  $('bcastState').textContent = (mqOk?'· ערוץ שידור פעיל ':'· ערוץ שידור מתחבר… ') + (peerState?'· '+peerState:'');
 }
-function newSession(){ const next=Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3); session=next; try{ localStorage.setItem('lt-session',session); }catch(_){} paintViewLink(); registerSession();
+function newSession(){ const next=Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3); const prev=session; session=next; try{ localStorage.setItem('lt-session',session); }catch(_){} paintViewLink(); registerSession();
+  mqPub(MQ_ROOT+'/s/'+prev,{k:'session',s:session,title:''}); mqSnapshot();
   if(peerUsingMain && peer && !peer.destroyed){ try{ peerSend({k:'session',s:session,title:''}); }catch(_){} } else { try{ peerSend({k:'redirect',s:session}); }catch(_){} conns=[]; startPeer(); } }
 // the cloud archiver (a scheduled Claude task) learns about sessions from this registry channel
 // lecture title: asked for when the recording starts, shown in the header, sent to viewers and to the archive
 function getTitle(){ try{ return localStorage.getItem('lt-title:'+session)||''; }catch(_){ return ''; } }
-function setTitle(t){ t=(t||'').trim(); try{ localStorage.setItem('lt-title:'+session,t); }catch(_){} $('title').textContent=t; document.title=t?t+' — תמלול חי':'תמלול ותרגום חי'; registerSession(); if(t) broadcast({k:'meta',title:t}); }
+function setTitle(t){ t=(t||'').trim(); try{ localStorage.setItem('lt-title:'+session,t); }catch(_){} $('title').textContent=t; document.title=t?t+' — תמלול חי':'תמלול ותרגום חי'; registerSession(); if(t) broadcast({k:'meta',title:t}); try{ mqSnapshot(); }catch(_){} }
 function askTitle(force){ const cur=getTitle(); if(cur&&!force) return cur; const t=window.prompt('שם ההרצאה (יופיע בכותרת, אצל הצופים ובארכיון):',cur||''); if(t===null) return cur; setTitle(t); return t.trim(); }
 $('title').onclick=()=>askTitle(true);
 $('title').textContent=getTitle(); if(getTitle()) document.title=getTitle()+' — תמלול חי';

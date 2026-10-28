@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>תמלול חי</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;500&family=Heebo:wght@400;500;700&family=Source+Serif+4:wght@400;600&display=swap" rel="stylesheet">
 <style>
   :root{
@@ -165,7 +166,7 @@
     paint(); window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
   }
   // the speaker starts a new lecture: same link, new content
-  function switchSession(ns){ session=ns; lines.clear(); summary=null; lastId=null; $('log').innerHTML=''; $('sumBody').innerHTML='<p class="none">הרצאה חדשה — הסיכום יופיע כאן תוך כמה דקות.</p>'; $('sumWhen').textContent=''; $('count').textContent='0'; try{ history.replaceState(null,'','live.html?s='+ns); }catch(_){} loadArchive(); }
+  function switchSession(ns){ if(ns===session) return; session=ns; lines.clear(); summary=null; lastId=null; $('log').innerHTML=''; $('sumBody').innerHTML='<p class="none">הרצאה חדשה — הסיכום יופיע כאן תוך כמה דקות.</p>'; $('sumWhen').textContent=''; $('count').textContent='0'; try{ history.replaceState(null,'','live.html?s='+ns); }catch(_){} loadArchive(); }
   let peerObj=null, tryMain=true;
   function startPeer(){
     if(typeof Peer==='undefined') return;
@@ -185,6 +186,21 @@
     p.on('error',fail);
   }
   startPeer();
+  // relay channel (public MQTT broker): works even when the direct link cannot be made
+  const MQ_BROKERS=['wss://broker.hivemq.com:8884/mqtt','wss://broker.emqx.io:8084/mqtt']; let mqIdx=0, mq=null, mqSubs=[];
+  function mqSubscribe(){ if(!mq||!mq.connected) return; for(const tp of mqSubs){ try{ mq.unsubscribe(tp); }catch(_){} } mqSubs=['lt7f3a9c/live','lt7f3a9c/state/'+session,'lt7f3a9c/s/'+session]; for(const tp of mqSubs){ try{ mq.subscribe(tp,{qos:0}); }catch(_){} } }
+  function startMq(){
+    if(typeof mqtt==='undefined') return;
+    try{ if(mq) mq.end(true); }catch(_){}
+    mq=mqtt.connect(MQ_BROKERS[mqIdx%MQ_BROKERS.length],{clientId:'lt-view-'+Math.random().toString(36).slice(2,10),keepalive:30,reconnectPeriod:0,connectTimeout:8000});
+    mq.on('connect',mqSubscribe);
+    mq.on('message',(tp,m)=>{ let d; try{ d=JSON.parse(m.toString()); }catch(_){ return; }
+      if(tp==='lt7f3a9c/live'){ if(d.s&&d.s!==session&&/^[a-z0-9]{6,12}$/.test(d.s)&&(Date.now()-(d.at||0)<6*3600*1000)){ switchSession(d.s); mqSubscribe(); } return; }
+      if(tp.startsWith('lt7f3a9c/state/')||tp.startsWith('lt7f3a9c/s/')){ const was=session; lastPeerData=Date.now(); applyMsg(d); if(session!==was) mqSubscribe(); } });
+    const down=()=>{ mqIdx++; setTimeout(startMq,3000); };
+    mq.on('close',down); mq.on('offline',down); mq.on('error',()=>{});
+  }
+  startMq();
   // status reflects data freshness, not the socket: a brief reconnect is invisible to the reader
   setInterval(()=>{ const fresh=Date.now()-lastPeerData<25000; if(fresh){ $('state').textContent='לייב — מחובר ישירות לדובר'; $('state').className='on'; } else if(!peerOk){ $('state').textContent='ממתין לדובר…'; $('state').className=''; } },3000);
 
