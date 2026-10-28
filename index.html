@@ -449,6 +449,13 @@ toggle.onclick=async()=>{
     if(e.name==='Timeout'){ setStatus('לא התקבלה תשובה על המיקרופון — מנסה להתחיל בכל זאת. אם נתקע: הגדרות מק → פרטיות ואבטחה → מיקרופון → Chrome','err'); }
     else { setStatus('המיקרופון חסום ('+e.name+'). סמל המנעול בשורת הכתובת → מיקרופון → אפשר; וגם הגדרות מק → פרטיות ואבטחה → מיקרופון → Chrome','err'); return; }
   }
+  // a new lecture? if the saved transcript is from another day / hours ago, offer to start fresh (the old one stays in the browser file + site archive)
+  if(lines.length && Date.now()-lines[lines.length-1].id > 3*3600*1000){
+    if(window.confirm('התמלול השמור הוא מהרצאה קודמת ('+lines.length+' משפטים, אחרון ב-'+lines[lines.length-1].t+').\nלהתחיל הרצאה חדשה? (הקודמת נשמרת בקובץ ובארכיון)')){
+      try{ $('save').click(); }catch(_){}
+      lines=[]; log.innerHTML=''; showLive(''); $('count').textContent='0'; $('started').textContent='—'; persist(); lastSummary=null; try{ localStorage.removeItem('lt-summary'); }catch(_){} $('sumBody').innerHTML='<p class="none">התחלה חדשה.</p>'; $('sumWhen').textContent=''; broadcast({k:'clear'}); newSession(); setTitle(''); askTitle(true);
+    }
+  }
   if(!getTitle()) askTitle(false);
   running=true; toggle.textContent='עצור'; toggle.classList.add('stop'); build(); rec.start();
 };
