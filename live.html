@@ -88,7 +88,13 @@
 <script>
 (async function(){
   const $=id=>document.getElementById(id);
-  const session=new URLSearchParams(location.search).get('s');
+  let session=new URLSearchParams(location.search).get('s');
+  // the latest lecture on this site (by last update) — used for ?s=latest and for the "newer lecture" banner
+  async function latestSession(){ try{ const idx=await (await fetch('data/index.json?'+Date.now(),{cache:'no-store'})).json(); const keys=Object.keys(idx).sort((a,b)=>(idx[b].updated||'').localeCompare(idx[a].updated||'')); return keys.length?{s:keys[0],title:idx[keys[0]].title||keys[0],updated:idx[keys[0]].updated||''}:null; }catch(_){ return null; } }
+  if(session==='latest'){ const l=await latestSession(); if(l){ location.replace('live.html?s='+l.s); return; } session=null; }
+  if(session){ // an old link? offer the newest lecture when this one is not the latest
+    (async()=>{ const l=await latestSession(); if(l && l.s!==session){ const b=document.createElement('a'); b.href='live.html?s='+l.s; b.style.cssText='display:block;margin:0 16px 10px;padding:10px 14px;border-radius:10px;background:var(--amber-soft);border:1px solid var(--amber);color:inherit;text-decoration:none;font-size:15px;text-align:center'; b.textContent='יש הרצאה חדשה יותר: "'+l.title+'" — לחץ כדי לעבור אליה'; const w=document.querySelector('.wrap'); w.parentNode.insertBefore(b,w); } })();
+  }
   if(!session){
     // no session in the link: list the lectures kept on this site
     $('state').textContent='ארכיון';
