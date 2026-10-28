@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>תמלול ותרגום חי</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.4/peerjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/microsoft-cognitiveservices-speech-sdk@1.40.0/distrib/browser/microsoft.cognitiveservices.speech.sdk.bundle-min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;500&family=Heebo:wght@400;500;700&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
 <style>
   /* Layout: ink header with controls, paper sheet with collapsible summary, two reading columns (EN left / HE right), live line at the bottom */
@@ -418,6 +419,41 @@ function showLive(text){
   if(!text){ liveEn.textContent=''; liveHe.textContent=''; }
 }
 
+// ---- Azure Speech (Microsoft): continuous recognition in whole sentences + built-in translation. Filled in once the resource exists. ----
+const AZURE={key:'', region:'eastus'};
+function azureReady(){ return !!(AZURE.key && window.SpeechSDK); }
+let azRec=null;
+function buildAzure(){
+  const {src,tgt}=dir();
+  const cfg=SpeechSDK.SpeechTranslationConfig.fromSubscription(AZURE.key, AZURE.region);
+  cfg.speechRecognitionLanguage=src; cfg.addTargetLanguage(tgt);
+  cfg.setProperty(SpeechSDK.PropertyId.Speech_SegmentationSilenceTimeoutMs, '900');
+  const audio=SpeechSDK.AudioConfig.fromDefaultMicrophoneInput();
+  azRec=new SpeechSDK.TranslationRecognizer(cfg, audio);
+  azRec.recognizing=(s_,e)=>{ const tr=e.result.translations&&e.result.translations.get(tgt); showLiveBoth(e.result.text||'', tr||''); };
+  azRec.recognized=(s_,e)=>{
+    if(e.result.reason!==SpeechSDK.ResultReason.TranslatedSpeech && e.result.reason!==SpeechSDK.ResultReason.RecognizedSpeech) return;
+    const text=(e.result.text||'').trim(); if(!text) return;
+    const tr=(e.result.translations&&e.result.translations.get(tgt))||'';
+    addLineWithTranslation(text, tr);
+  };
+  azRec.canceled=(s_,e)=>{
+    if(e.reason===SpeechSDK.CancellationReason.Error){ setStatus('Azure: '+(e.errorDetails||'').slice(0,120),'err'); if(/401|403|key/i.test(e.errorDetails||'')){ running=false; toggle.textContent='התחל'; toggle.classList.remove('stop'); return; } }
+    if(running){ setTimeout(()=>{ try{ azRec.startContinuousRecognitionAsync(); }catch(_){} },1500); }
+  };
+  azRec.sessionStarted=()=>setStatus('מאזין (Azure · '+src+')','on');
+  azRec.sessionStopped=()=>{ if(running){ try{ azRec.startContinuousRecognitionAsync(); }catch(_){} } else setStatus('לא מאזין'); };
+}
+function showLiveBoth(a,b){ const srcIsEn=dir().src.startsWith('en'); (srcIsEn?liveEn:liveHe).textContent=a; (srcIsEn?liveHe:liveEn).textContent=b; }
+function addLineWithTranslation(text, tr){
+  const e=$('empty'); if(e) e.remove();
+  const srcIsEn=dir().src.startsWith('en');
+  const t=now(); const entry={id:Date.now(),t,en:srcIsEn?text:tr,he:srcIsEn?tr:text}; lines.push(entry);
+  const trCell=renderRow(entry, srcIsEn); if(tr){ trCell.textContent=tr; trCell.classList.remove('pending'); }
+  persist(); sync(false); broadcast({k:'line',id:entry.id,t:entry.t,en:entry.en,he:entry.he});
+  if(!tr){ translate(text,dir().src,dir().tgt).then(x=>{ if(srcIsEn) entry.he=x; else entry.en=x; trCell.textContent=x; trCell.classList.remove('pending'); persist(); broadcast({k:'line',id:entry.id,t:entry.t,en:entry.en,he:entry.he}); }).catch(()=>{}); }
+  showLiveBoth('','');
+}
 function build(){
   rec=new SR();
   rec.lang=dir().src; rec.continuous=true; rec.interimResults=true; rec.maxAlternatives=1;
@@ -436,8 +472,8 @@ function build(){
 }
 
 toggle.onclick=async()=>{
-  if(!SR){ setStatus('הדפדפן הזה לא תומך בזיהוי דיבור — יש להשתמש ב-Chrome','err'); return; }
-  if(running){ running=false; rec.stop(); if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream=null; } toggle.textContent='התחל'; toggle.classList.remove('stop'); return; }
+  if(!SR && !azureReady()){ setStatus('הדפדפן הזה לא תומך בזיהוי דיבור — יש להשתמש ב-Chrome','err'); return; }
+  if(running){ running=false; if(azRec){ try{ azRec.stopContinuousRecognitionAsync(); }catch(_){} } else if(rec){ rec.stop(); } if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream=null; } toggle.textContent='התחל'; toggle.classList.remove('stop'); setStatus('לא מאזין'); return; }
   setStatus('מבקש גישה למיקרופון… בחרי "אפשר בכל ביקור"');
   // keep the stream open for the whole session: Chrome then never asks again, even after a one-time allow
   try{
@@ -457,9 +493,11 @@ toggle.onclick=async()=>{
     }
   }
   if(!getTitle()) askTitle(false);
-  running=true; toggle.textContent='עצור'; toggle.classList.add('stop'); build(); rec.start();
+  running=true; toggle.textContent='עצור'; toggle.classList.add('stop');
+  if(azureReady()){ buildAzure(); azRec.startContinuousRecognitionAsync(undefined, err=>setStatus('Azure לא התחיל: '+String(err).slice(0,100),'err')); }
+  else { build(); rec.start(); }
 };
-$('lang').onchange=()=>{ if(running){ rec.onend=null; rec.stop(); build(); rec.start(); } };
+$('lang').onchange=()=>{ if(!running) return; if(azRec){ try{ azRec.stopContinuousRecognitionAsync(()=>{ buildAzure(); azRec.startContinuousRecognitionAsync(); }); }catch(_){} } else { rec.onend=null; rec.stop(); build(); rec.start(); } };
 
 function asText(){ return lines.map(l=>l.t+'\nEN: '+l.en+'\nHE: '+l.he).join('\n\n'); }
 $('copy').onclick=async()=>{ try{ await navigator.clipboard.writeText(asText()); setStatus('הועתק',running?'on':''); }catch(_){} };
