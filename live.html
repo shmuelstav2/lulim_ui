@@ -127,7 +127,7 @@
       if(lastId!==before || lines.size) { paint(); if(lastId!==before) window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'}); }
       failures=0; $('state').textContent='מחובר'; $('state').className='on';
     }catch(e){ failures++; $('state').textContent=failures>3?'אין חיבור — מנסה שוב':'מתחבר…'; $('state').className=''; }
-    setTimeout(poll, 2500);
+    setTimeout(poll, 8000);
   }
   poll();
 })();

@@ -262,7 +262,7 @@ async function pollCloudSummary(){
     if(sm && sm.he && (!lastSummary || (sm.count||0)>(lastSummary.count||0))){ showSummary({he:sm.he,en:sm.en||'',at:sm.at||'',count:sm.count||0}); $('sumState').textContent='הסיכום הגיע מהענן'; }
   }catch(_){}
 }
-pollCloudSummary(); setInterval(pollCloudSummary, 15000);
+pollCloudSummary(); setInterval(pollCloudSummary, 60000);
 $('sumNow').onclick=requestSummary;
 $('sumToggle').onclick=()=>{ document.body.classList.toggle('sum-open'); $('sumToggle').classList.toggle('on',document.body.classList.contains('sum-open')); if(document.body.classList.contains('sum-open') && !lastSummary && lines.length) requestSummary(); };
 $('sumAuto').onclick=()=>{ sumAuto=!sumAuto; $('sumAuto').textContent='עדכון אוטומטי: '+(sumAuto?'כל 4 דקות':'כבוי'); clearInterval(sumAutoTimer); if(sumAuto) sumAutoTimer=setInterval(()=>{ if(lines.length) requestSummary(); },240000); };
