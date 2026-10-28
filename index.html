@@ -102,6 +102,7 @@
   <button id="copy">העתק</button>
   <button id="importBtn">ייבוא קובץ</button><input id="importFile" type="file" accept=".txt,text/plain" hidden>
   <button id="save">שמור קובץ</button>
+  <button id="newLec">הרצאה חדשה</button>
   <button id="clear">נקה</button>
 </div></header>
 
@@ -162,7 +163,7 @@ function paintViewLink(){
   el.href=VIEW_URL(); el.textContent=VIEW_URL();
   $('bcastState').textContent = (peerState?'· '+peerState:'') + (bcastOk===null?'': bcastOk?' · ערוץ: משודר':' · ערוץ: חסום');
 }
-function newSession(){ session=Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3); try{ localStorage.setItem('lt-session',session); }catch(_){} paintViewLink(); registerSession(); conns=[]; startPeer(); }
+function newSession(){ const next=Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3); try{ peerSend({k:'redirect',s:next}); }catch(_){} session=next; session=session||Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3); try{ localStorage.setItem('lt-session',session); }catch(_){} paintViewLink(); registerSession(); conns=[]; startPeer(); }
 // the cloud archiver (a scheduled Claude task) learns about sessions from this registry channel
 // lecture title: asked for when the recording starts, shown in the header, sent to viewers and to the archive
 function getTitle(){ try{ return localStorage.getItem('lt-title:'+session)||''; }catch(_){ return ''; } }
@@ -508,6 +509,8 @@ function asText(){ return lines.map(l=>l.t+'\nEN: '+l.en+'\nHE: '+l.he).join('\n
 $('copy').onclick=async()=>{ try{ await navigator.clipboard.writeText(asText()); setStatus('הועתק',running?'on':''); }catch(_){} };
 $('save').onclick=()=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+asText()],{type:'text/plain;charset=utf-8'})); a.download='transcript-'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.txt'; a.click(); };
 $('clear').onclick=()=>{ if(lines.length && !window.confirm('למחוק את כל '+lines.length+' המשפטים ולהתחיל שידור חדש? (כדאי קודם \"שמור קובץ\")')) return; lines=[]; log.innerHTML=''; showLive(''); $('count').textContent='0'; $('started').textContent='—'; persist(); lastSummary=null; try{ localStorage.removeItem('lt-summary'); }catch(_){} $('sumBody').innerHTML='<p class=\"none\">התחלה חדשה — הסיכום יופיע כאן תוך כמה דקות.</p>'; $('sumWhen').textContent=''; broadcast({k:'clear'}); newSession(); };
+function startNewLecture(){ if(lines.length && !window.confirm('להתחיל הרצאה חדשה? ('+lines.length+' משפטים של ההרצאה הנוכחית נשמרים בקובץ ובארכיון)')) return; if(lines.length){ try{ $('save').click(); }catch(_){} } lines=[]; log.innerHTML=''; showLive(''); $('count').textContent='0'; $('started').textContent='—'; persist(); lastSummary=null; try{ localStorage.removeItem('lt-summary'); }catch(_){} $('sumBody').innerHTML='<p class="none">הרצאה חדשה — הסיכום יופיע כאן תוך כמה דקות.</p>'; $('sumWhen').textContent=''; broadcast({k:'clear'}); newSession(); setTitle(''); askTitle(true); }
+$('newLec').onclick=startNewLecture;
 $('copyView').onclick=async()=>{ try{ await navigator.clipboard.writeText(VIEW_URL()); $('copyView').textContent='הועתק ✓'; setTimeout(()=>$('copyView').textContent='העתק קישור לצופים',1500); }catch(_){} };
 paintViewLink();
 </script>

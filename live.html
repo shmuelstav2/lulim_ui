@@ -137,6 +137,7 @@
     else if(d.k==='lines'&&Array.isArray(d.items)){ for(const l of d.items){ if(l&&l.id) lines.set(l.id,{id:l.id,t:l.t||'',en:l.en||'',he:l.he||''}); } }
     else if(d.k==='sum'&&d.he){ if(!summary||(d.count||0)>=(summary.count||0)) summary=d; }
     else if(d.k==='meta'&&d.title){ setTitle(d.title); }
+    else if(d.k==='redirect'&&d.s&&/^[a-z0-9]{6,12}$/.test(d.s)){ location.replace('live.html?s='+d.s); return; }
     else if(d.k==='clear'){ lines.clear(); summary=null; $('log').innerHTML=''; }
     $('updated').textContent=new Date().toTimeString().slice(0,5);
     paint(); window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
