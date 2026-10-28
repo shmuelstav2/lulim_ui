@@ -25,7 +25,14 @@
   #state{display:flex;align-items:center;gap:7px}
   #state::before{content:"";width:8px;height:8px;border-radius:50%;background:#8a8f99}
   #state.on::before{background:var(--amber);box-shadow:0 0 0 3px color-mix(in srgb,var(--amber) 30%,transparent)}
-  .wrap{max-width:1080px;margin:-14px auto 0;padding:0 16px}
+  .wrap{max-width:1440px;margin:-14px auto 0;padding:0 16px;display:grid;grid-template-columns:minmax(0,1fr) 400px;gap:18px;align-items:start}
+  aside.sum{position:sticky;top:12px;background:var(--amber-soft);border:1px solid var(--line);border-radius:14px;padding:16px 20px 18px;max-height:calc(100vh - 40px);overflow:auto}
+  aside.sum h2{margin:0 0 4px;font-family:var(--disp);font-weight:500;font-size:22px}
+  aside.sum .when{font-size:12px;color:var(--muted);margin-bottom:12px}
+  aside.sum p{margin:0 0 12px;line-height:1.7;font-size:15px;white-space:pre-wrap}
+  aside.sum .en{direction:ltr;text-align:left;font-family:var(--eng);color:var(--en);border-top:1px dashed var(--line);padding-top:10px}
+  aside.sum .he{color:var(--he)}
+  aside.sum .none{color:var(--muted);font-size:14px}
   .sheet{background:var(--paper);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 30px -18px rgba(0,0,0,.35);overflow:hidden}
   details.sum{border-bottom:1px solid var(--line);background:var(--amber-soft)}
   details.sum summary{list-style:none;cursor:pointer;padding:14px 22px;display:flex;align-items:center;gap:12px;font-weight:700;font-size:15px}
@@ -49,7 +56,8 @@
   .cell:empty::before{content:"…";color:var(--muted)}
   #empty{color:var(--muted);text-align:center;padding:64px 22px;margin:0 auto;max-width:44ch;line-height:1.7;font-size:15px}
   footer{max-width:1080px;margin:14px auto 0;padding:0 16px;font-size:12px;color:var(--muted)}
-  @media (max-width:700px){ .band h1{font-size:26px} .cols,.row,.sumbody{grid-template-columns:1fr} .cols .en{display:none} .cell{font-size:17px} .cell.en{border-bottom:1px dashed var(--line);padding-bottom:6px} }
+  @media (max-width:900px){ .wrap{grid-template-columns:1fr} aside.sum{position:static;max-height:none;order:-1} }
+  @media (max-width:700px){ .band h1{font-size:26px} .cols,.row{grid-template-columns:1fr} .cols .en{display:none} .cell{font-size:17px} .cell.en{border-bottom:1px dashed var(--line);padding-bottom:6px} }
 </style>
 </head>
 <body>
@@ -58,13 +66,15 @@
   <div class="meta"><span>משפטים <b id="count">0</b></span><span>עדכון אחרון <b id="updated">—</b></span><span id="state">מתחבר…</span></div>
 </div></div>
 <div class="wrap"><div class="sheet">
-  <details class="sum" open>
-    <summary>סיכום מתכלל עד כאן <span class="when" id="sumWhen"></span></summary>
-    <div class="sumbody" id="sumBody"><p class="none">הסיכום יופיע כאן כשהדובר יבקש אותו או כשיצטברו מספיק משפטים.</p></div>
-  </details>
   <div class="cols"><span class="en">English</span><span>עברית</span></div>
   <div id="log"><p id="empty">ממתין לתמלול… המשפטים יופיעו כאן ברגע שהדובר יתחיל, בלי צורך לרענן.</p></div>
-</div></div>
+</div>
+<aside class="sum">
+  <h2>סיכום ההרצאה עד כאן</h2>
+  <div class="when" id="sumWhen">עדיין לא נוצר סיכום</div>
+  <div id="sumBody"><p class="none">הסיכום הכללי מתעדכן כאן לבד כל כמה דקות, מתוך כל מה שנאמר מתחילת ההרצאה.</p></div>
+</aside>
+</div>
 <footer>הדף מתעדכן אוטומטית. עותק קבוע של התמלול והסיכום נשמר בענן כל כ-10 דקות ונשאר זמין בקישור הזה.</footer>
 
 <script>
@@ -79,7 +89,7 @@
       const keys=Object.keys(idx).sort((a,b)=>(idx[b].updated||'').localeCompare(idx[a].updated||''));
       $('log').innerHTML=keys.length?'':'<p id="empty">עדיין אין הרצאות שמורות.</p>';
       for(const k of keys){ const a=document.createElement('a'); a.className='row'; a.href='live.html?s='+k; a.style.textDecoration='none'; a.style.color='inherit'; a.innerHTML='<time></time><div class="cell he"></div><div class="cell en"></div>'; a.querySelector('time').textContent=(idx[k].updated||'').slice(0,16).replace('T',' '); a.querySelector('.he').textContent=idx[k].title||k; a.querySelector('.en').textContent=(idx[k].lines||0)+' lines'; $('log').appendChild(a); }
-      document.querySelector('details.sum').remove();
+      const asd=document.querySelector('aside.sum'); if(asd) asd.remove();
     }catch(_){ $('state').textContent='חסר מזהה שידור בקישור'; }
     return;
   }
