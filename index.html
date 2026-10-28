@@ -204,7 +204,7 @@ let sumAuto=false, sumAutoTimer=null, sumWait=null, summarizing=false;
 // ---- summary: generated right here, with an API key the user pastes once (Anthropic "sk-ant-…" or Google Gemini "AIza…") ----
 function apiKey(){ try{ return localStorage.getItem('lt-apikey')||''; }catch(_){ return ''; } }
 function askKey(){
-  const k=window.prompt('כדי ליצור סיכום בדף עצמו צריך מפתח API (נשמר רק בדפדפן הזה):\n• Anthropic: console.anthropic.com → API Keys (מתחיל ב-sk-ant-)\n• או Google Gemini: aistudio.google.com → Get API key (מתחיל ב-AIza)\n\nהדביקי את המפתח:', apiKey());
+  const k=window.prompt('מפתח API לתרגום ולסיכום בדף (נשמר רק בדפדפן הזה):\n• OpenRouter: openrouter.ai → Keys (מתחיל ב-sk-or-)\n• Google Gemini: aistudio.google.com → Get API key (מתחיל ב-AIza)\n• Anthropic: console.anthropic.com → API Keys (מתחיל ב-sk-ant-)\n\nהדביקי את המפתח:', apiKey());
   if(k===null) return apiKey();
   try{ localStorage.setItem('lt-apikey',k.trim()); }catch(_){}
   return k.trim();
@@ -221,6 +221,8 @@ async function llmSummarize(text){
     const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+encodeURIComponent(key),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{responseMimeType:'application/json'}})});
     if(!r.ok) throw new Error('Gemini '+r.status+': '+(await r.text()).slice(0,200));
     const j=await r.json(); out=((j.candidates||[])[0]||{}).content?.parts?.map(p=>p.text||'').join('')||'';
+  } else if(key.startsWith('sk-or-')){
+    out=await llmRaw(prompt); if(!out) throw new Error('OpenRouter request failed');
   } else throw new Error('nokey');
   const m=out.match(/\{[\s\S]*\}/); if(!m) throw new Error('bad answer');
   return JSON.parse(m[0]);
@@ -315,8 +317,13 @@ async function llmRaw(prompt){
     const r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+encodeURIComponent(key),{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})});
     if(!r.ok) return ''; const j=await r.json(); return ((j.candidates||[])[0]||{}).content?.parts?.map(p=>p.text||'').join('')||'';
   }
+  if(key.startsWith('sk-or-')){
+    const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+key,'HTTP-Referer':location.origin,'X-Title':'Live Transcribe'},body:JSON.stringify({model:OPENROUTER_MODEL,messages:[{role:'user',content:prompt}]})});
+    if(!r.ok) return ''; const j=await r.json(); return ((j.choices||[])[0]||{}).message?.content||'';
+  }
   return '';
 }
+const OPENROUTER_MODEL='google/gemini-2.0-flash-001';
 // lines whose translation failed are retried in the background
 setInterval(()=>{
   const srcIsEn=dir().src.startsWith('en');
