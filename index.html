@@ -113,8 +113,8 @@
     <aside id="sumPanel">
       <h2>סיכום ההרצאה עד כאן</h2>
       <div class="when" id="sumWhen">עדיין לא נוצר סיכום</div>
-      <div id="sumBody"><p class="none">הסיכום מגיע מהענן (Claude מסכם את התמלול כל כמה דקות ושולח לכאן ולצופים). "סכם עכשיו" מייצר סיכום מיידי בדף — דורש מפתח API פעם אחת.</p></div>
-      <div class="act"><button id="sumNow" type="button">סכם עכשיו</button><button id="sumAuto" type="button">עדכון אוטומטי: כבוי</button><button id="sumKey" type="button">מפתח API</button><span id="sumState"></span></div>
+      <div id="sumBody"><p class="none">הסיכום מגיע מהענן (Claude מסכם את התמלול כל כמה דקות ושולח לכאן ולצופים). "סכם עכשיו" מבקש סיכום מעודכן מהענן. (מפתח API — רק למי שרוצה סיכום מיידי בדף.)</p></div>
+      <div class="act"><button id="sumNow" type="button">סכם עכשיו</button><button id="sumAuto" type="button">עדכון אוטומטי: כבוי</button><button id="sumKey" type="button" title="אופציונלי: סיכום מיידי בדף עם מפתח Anthropic/Gemini">מפתח API (אופציונלי)</button><span id="sumState"></span></div>
     </aside>
   </div>
 </main>
@@ -228,7 +228,12 @@ async function llmSummarize(text){
 async function requestSummary(){
   if(!lines.length){ $('sumState').textContent='עדיין אין מה לסכם'; return; }
   if(summarizing) return;
-  if(!apiKey()){ if(!askKey()){ $('sumState').textContent='בלי מפתח אין סיכום בדף; אפשר גם להעתיק את התמלול ולבקש סיכום ב-Claude'; return; } }
+  // with a key: summarize right here. Without one: ask the cloud (Claude checks the channel every ~10 minutes)
+  if(!apiKey()){
+    broadcast({k:'sumreq',count:lines.length,at:new Date().toTimeString().slice(0,5)});
+    $('sumState').textContent='הבקשה נשלחה לענן — הסיכום יופיע כאן תוך כ-10 דקות';
+    return;
+  }
   summarizing=true; $('sumState').textContent='מסכם… (כ-10–30 שניות)';
   try{
     const text=lines.map(l=>l.en||l.he).join('\n');
@@ -236,8 +241,7 @@ async function requestSummary(){
     const sum={he:String(r.he||''),en:String(r.en||''),at:new Date().toTimeString().slice(0,5),count:lines.length};
     showSummary(sum); broadcast({k:'sum',he:sum.he,en:sum.en,at:sum.at,count:sum.count});
   }catch(e){
-    if(String(e.message)==='nokey'){ $('sumState').textContent='המפתח לא מזוהה — לחצי "מפתח API" והדביקי מפתח של Anthropic או Gemini'; }
-    else if(/401|403|invalid|API key/i.test(e.message)){ $('sumState').textContent='המפתח נדחה — בדקי אותו ב"מפתח API"'; }
+    if(/401|403|invalid|API key/i.test(e.message)){ $('sumState').textContent='המפתח נדחה — בדקי אותו ב"מפתח API"'; }
     else $('sumState').textContent='הסיכום נכשל: '+e.message.slice(0,120);
   } finally { summarizing=false; }
 }
