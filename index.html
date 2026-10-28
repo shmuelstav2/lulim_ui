@@ -115,7 +115,7 @@
     <aside id="sumPanel">
       <h2>סיכום ההרצאה עד כאן</h2>
       <div class="when" id="sumWhen">עדיין לא נוצר סיכום</div>
-      <div id="sumBody"><p class="none">הסיכום מגיע מהענן (Claude מסכם את התמלול כל כמה דקות ושולח לכאן ולצופים). "סכם עכשיו" מבקש סיכום מעודכן מהענן. (מפתח API — רק למי שרוצה סיכום מיידי בדף.)</p></div>
+      <div id="sumBody"><p class="none">הסיכום הכללי מתעדכן כאן לבד כל כמה דקות, מתוך כל מה שנאמר מתחילת ההרצאה. הוא יופיע אחרי המשפטים הראשונים.</p></div>
       <div class="act"><button id="sumNow" type="button">סכם עכשיו</button><button id="sumAuto" type="button">עדכון אוטומטי: כבוי</button><button id="sumKey" type="button" title="אופציונלי: סיכום מיידי בדף עם מפתח Anthropic/Gemini">מפתח API (אופציונלי)</button><span id="sumState"></span></div>
     </aside>
   </div>
@@ -289,7 +289,10 @@ async function pollCloudSummary(){
 }
 pollCloudSummary(); setInterval(pollCloudSummary, 60000);
 $('sumNow').onclick=requestSummary;
-$('sumToggle').onclick=()=>{ document.body.classList.toggle('sum-open'); $('sumToggle').classList.toggle('on',document.body.classList.contains('sum-open')); if(document.body.classList.contains('sum-open') && !lastSummary && lines.length) requestSummary(); };
+// the summary panel stays open by default (the viewer can hide it; the choice is remembered)
+let sumOpenPref=true; try{ sumOpenPref=localStorage.getItem('lt-sum-open')!=='0'; }catch(_){}
+if(sumOpenPref){ document.body.classList.add('sum-open'); $('sumToggle').classList.add('on'); }
+$('sumToggle').onclick=()=>{ const open=document.body.classList.toggle('sum-open'); $('sumToggle').classList.toggle('on',open); try{ localStorage.setItem('lt-sum-open',open?'1':'0'); }catch(_){} };
 $('sumAuto').onclick=()=>{ sumAuto=!sumAuto; $('sumAuto').textContent='עדכון אוטומטי: '+(sumAuto?'כל 4 דקות':'כבוי'); clearInterval(sumAutoTimer); if(sumAuto) sumAutoTimer=setInterval(()=>{ if(lines.length) requestSummary(); },240000); };
 function openShare(){
   if(shareWin && !shareWin.closed){ shareWin.focus(); return; }
@@ -502,7 +505,7 @@ $('lang').onchange=()=>{ if(!running) return; if(azRec){ try{ azRec.stopContinuo
 function asText(){ return lines.map(l=>l.t+'\nEN: '+l.en+'\nHE: '+l.he).join('\n\n'); }
 $('copy').onclick=async()=>{ try{ await navigator.clipboard.writeText(asText()); setStatus('הועתק',running?'on':''); }catch(_){} };
 $('save').onclick=()=>{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob(['﻿'+asText()],{type:'text/plain;charset=utf-8'})); a.download='transcript-'+new Date().toISOString().slice(0,16).replace(/[:T]/g,'-')+'.txt'; a.click(); };
-$('clear').onclick=()=>{ if(lines.length && !window.confirm('למחוק את כל '+lines.length+' המשפטים ולהתחיל שידור חדש? (כדאי קודם \"שמור קובץ\")')) return; lines=[]; log.innerHTML=''; showLive(''); $('count').textContent='0'; $('started').textContent='—'; persist(); lastSummary=null; try{ localStorage.removeItem('lt-summary'); }catch(_){} $('sumBody').innerHTML='<p class=\"none\">התחלה חדשה.</p>'; $('sumWhen').textContent=''; broadcast({k:'clear'}); newSession(); };
+$('clear').onclick=()=>{ if(lines.length && !window.confirm('למחוק את כל '+lines.length+' המשפטים ולהתחיל שידור חדש? (כדאי קודם \"שמור קובץ\")')) return; lines=[]; log.innerHTML=''; showLive(''); $('count').textContent='0'; $('started').textContent='—'; persist(); lastSummary=null; try{ localStorage.removeItem('lt-summary'); }catch(_){} $('sumBody').innerHTML='<p class=\"none\">התחלה חדשה — הסיכום יופיע כאן תוך כמה דקות.</p>'; $('sumWhen').textContent=''; broadcast({k:'clear'}); newSession(); };
 $('copyView').onclick=async()=>{ try{ await navigator.clipboard.writeText(VIEW_URL()); $('copyView').textContent='הועתק ✓'; setTimeout(()=>$('copyView').textContent='העתק קישור לצופים',1500); }catch(_){} };
 paintViewLink();
 </script>
