@@ -116,7 +116,7 @@
     return;
   }
   const TOPIC='https://ntfy.sh/lt-7f3a9c-'+session;
-  const lines=new Map(); let lastId=null, summary=null, failures=0;
+  const lines=new Map(); let lastId=null, summary=null, failures=0, paintedCount=0;
   function setTitle(t){ if(!t) return; $('h1').firstChild.textContent=t; document.title=t+' — תמלול חי'; }
   const esc=s=>String(s==null?'':s);
   function paint(){
@@ -130,7 +130,7 @@
       row.querySelector('.en').textContent=esc(l.en); row.querySelector('.he').textContent=esc(l.he);
     }
     $('count').textContent=arr.length;
-    if(summary){ $('sumWhen').textContent='נכון ל-'+summary.at+' · '+summary.count+' משפטים'; $('sumBody').innerHTML='<p class="he"></p><p class="en"></p>'; $('sumBody').querySelector('.he').textContent=summary.he; $('sumBody').querySelector('.en').textContent=summary.en||''; }
+    if(summary){ const key=summary.at+'|'+summary.count+'|'+(summary.he||'').length; if(paint.lastSum!==key){ paint.lastSum=key; $('sumWhen').textContent='נכון ל-'+summary.at+' · '+summary.count+' משפטים'; $('sumBody').innerHTML='<p class="he"></p><p class="en"></p>'; $('sumBody').querySelector('.he').textContent=summary.he; $('sumBody').querySelector('.en').textContent=summary.en||''; } }
   }
   function ingest(msg){
     if(!msg || msg.event!=='message') return;
@@ -146,14 +146,17 @@
   async function loadArchive(){
     try{
       const r=await fetch('data/'+session+'.json?'+Date.now(),{cache:'no-store'});
-      if(r.ok){ const j=await r.json(); if(j.title) setTitle(j.title); for(const l of (j.lines||[])){ if(l&&l.id) lines.set(l.id,{id:l.id,t:l.t||'',en:l.en||'',he:l.he||''}); } if(j.summary&&j.summary.he) summary=j.summary; paint(); window.scrollTo(0,document.body.scrollHeight); }
+      if(r.ok){ const j=await r.json(); if(j.title) setTitle(j.title); for(const l of (j.lines||[])){ if(l&&l.id) lines.set(l.id,{id:l.id,t:l.t||'',en:l.en||'',he:l.he||''}); } if(j.summary&&j.summary.he) summary=j.summary; const before=paintedCount; paint(); autoScroll(lines.size-before,true); }
     }catch(_){}
   }
   await loadArchive(); setInterval(loadArchive, 60*1000);
   // direct link to the speaker's page (peer-to-peer): instant updates, no relay
   let peerOk=false;
+  // follow the speaker only when the reader is already at the bottom and something new arrived — never yank the page around
+  function autoScroll(added,instant){ if(added<=0) return; const nearBottom=(document.body.scrollHeight-window.scrollY-window.innerHeight)<220 || paintedCount===0; paintedCount=lines.size; if(nearBottom) window.scrollTo({top:document.body.scrollHeight,behavior:instant?'auto':'smooth'}); }
   function applyMsg(d){
     if(!d||typeof d!=='object') return;
+    const sizeBefore=lines.size;
     if(d.k==='state'||d.k==='session'){ if(d.session||d.s){ const ns=d.session||d.s; if(ns!==session && /^[a-z0-9]{6,12}$/.test(ns)) switchSession(ns); } if(d.k==='session'){ setTitle(d.title||''); return; } }
     if(d.k==='state'){ if(d.title) setTitle(d.title); for(const l of (d.lines||[])){ if(l&&l.id) lines.set(l.id,{id:l.id,t:l.t||'',en:l.en||'',he:l.he||''}); } if(d.summary&&d.summary.he&&(!summary||(d.summary.count||0)>=(summary.count||0))) summary=d.summary; }
     else if(d.k==='line'&&d.id){ lines.set(d.id,{id:d.id,t:d.t||'',en:d.en||'',he:d.he||''}); }
@@ -163,7 +166,7 @@
     else if(d.k==='redirect'&&d.s&&/^[a-z0-9]{6,12}$/.test(d.s)){ switchSession(d.s); return; }
     else if(d.k==='clear'){ lines.clear(); summary=null; $('log').innerHTML=''; }
     $('updated').textContent=new Date().toTimeString().slice(0,5);
-    paint(); window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'});
+    paint(); autoScroll(lines.size-sizeBefore,false); paintedCount=lines.size;
   }
   // the speaker starts a new lecture: same link, new content
   function switchSession(ns){ if(ns===session) return; session=ns; lines.clear(); summary=null; lastId=null; $('log').innerHTML=''; $('sumBody').innerHTML='<p class="none">הרצאה חדשה — הסיכום יופיע כאן תוך כמה דקות.</p>'; $('sumWhen').textContent=''; $('count').textContent='0'; try{ history.replaceState(null,'','live.html?s='+ns); }catch(_){} loadArchive(); }
@@ -211,7 +214,7 @@
       const txt=await r.text();
       const before=lastId;
       txt.split('\n').filter(Boolean).forEach(l=>{ try{ ingest(JSON.parse(l)); }catch(_){} });
-      if(lastId!==before || lines.size) { paint(); if(lastId!==before) window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'}); }
+      if(lastId!==before || lines.size) { const sb=paintedCount; paint(); autoScroll(lines.size-sb,false); paintedCount=lines.size; }
       failures=0;
     }catch(e){ failures++; }
     setTimeout(poll, 8000);
