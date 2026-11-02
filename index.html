@@ -180,7 +180,7 @@ function onBridgeMsg(topic,payload){
   bridgeAt=Date.now(); paintViewLink();
   if(m.k==='live'){ if(!running) showLive(m.text||''); return; }
   if(m.k==='sum'&&m.he){ showSummary({he:m.he,en:m.en||'',at:m.at||'',count:m.count||0}); try{ $('sumState').textContent='סיכום מ-Claude · עודכן '+(m.at||''); }catch(_){} return; }
-  if(m.k==='pairs-ids'&&Array.isArray(m.ids)){ const keep=new Set(m.ids.map(x=>'p:'+x)); const n=lines.length; lines=lines.filter(l=>l.src!==m.src||keep.has(l.bridge)); if(lines.length!==n){ log.innerHTML=''; lines.forEach(l=>{ const c=renderRow(l,true); if(!l.he){ c.textContent=''; c.classList.remove('pending'); } }); persist(); try{ mqSnapshot(); }catch(_){} } return; }
+  if(m.k==='pairs-ids'&&Array.isArray(m.ids)){ const keep=new Set(m.ids.map(x=>'p:'+x)); const n=lines.length; lines=lines.filter(l=>l.src!==m.src||keep.has(l.bridge)); if(lines.length!==n){ log.innerHTML=''; lines.forEach(l=>renderRow(l,true)); persist(); try{ mqSnapshot(); }catch(_){} } return; }
   if(m.k==='pairs'&&Array.isArray(m.items)){ applyPairs(m.items, m.src||'tool'); return; }
   if(m.k==='mirror'&&Array.isArray(m.items)){ if(m.src==='api'&&lines.some(l=>/^c\d+$/.test(l.bridge||''))){ lines=lines.filter(l=>!/^c\d+$/.test(l.bridge||'')); log.innerHTML=''; lines.forEach(l=>renderRow(l,true)); persist(); } applyMirror(m.items); return; }
 }
@@ -188,15 +188,15 @@ function onBridgeMsg(topic,payload){
 function applyPairs(items, src){
   let redraw=false; bridgeMode=true;
   document.body.classList.remove('mirror');
-  if(lines.some(l=>l.src!==src)){ lines=lines.filter(l=>l.src===src); log.innerHTML=''; lines.forEach(l=>{ const c=renderRow(l,true); if(!l.he){ c.textContent=''; c.classList.remove('pending'); } }); persist(); }
+  if(lines.some(l=>l.src!==src)){ lines=lines.filter(l=>l.src===src); log.innerHTML=''; lines.forEach(l=>renderRow(l,true)); persist(); }
   for(const it of items){
     const key='p:'+it.id; const ex=lines.find(l=>l.bridge===key);
     if(ex){ if(ex.he!==(it.he||'')||ex.en!==(it.en||'')){ ex.he=it.he||''; ex.en=it.en||''; redraw=true; broadcast({k:'line',id:ex.id,t:ex.t,en:ex.en,he:ex.he}); } continue; }
     const entry={id:Date.now()*100+lines.length%100,t:it.t||now(),en:it.en||'',he:it.he||'',bridge:key,src}; lines.push(entry);
-    const c=renderRow(entry,true); if(entry.he){ c.textContent=entry.he; c.classList.remove('pending'); } else { c.textContent=''; c.classList.remove('pending'); }
+    renderRow(entry,true);
     broadcast({k:'line',id:entry.id,t:entry.t,en:entry.en,he:entry.he});
   }
-  if(redraw){ log.innerHTML=''; lines.forEach(l=>{ const c=renderRow(l,true); if(!l.he){ c.textContent=''; c.classList.remove('pending'); } }); }
+  if(redraw){ log.innerHTML=''; lines.forEach(l=>renderRow(l,true)); }
   persist(); sync(false); try{ mqSnapshot(); }catch(_){}
 }
 // mirror mode: the page shows exactly the Claude conversation, in order - your words in the English column, Claude's replies in the Hebrew column
