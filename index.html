@@ -173,20 +173,20 @@ function startMq(){
 startMq();
 setInterval(paintViewLink,10000);
 // ---- bridge from the Claude desktop app: a helper on the Mac reads the app's transcript and sends finished sentences here ----
-var bridgeSeen=new Set(), bridgeAt=0;
+var bridgeSeen=new Set(), bridgeAt=0, bridgeMode=false, micTail='';
 function onBridgeMsg(topic,payload){
   if(topic!==MQ_ROOT+'/in/'+session) return;
   let m; try{ m=JSON.parse(payload.toString()); }catch(_){ return; }
   bridgeAt=Date.now(); paintViewLink();
   if(m.k==='live'){ if(!running) showLive(m.text||''); return; }
+  if(m.k==='sum'&&m.he){ showSummary({he:m.he,en:m.en||'',at:m.at||'',count:m.count||0}); try{ $('sumState').textContent='סיכום מ-Claude · עודכן '+(m.at||''); }catch(_){} return; }
   if(m.k==='pairs-ids'&&Array.isArray(m.ids)){ const keep=new Set(m.ids.map(x=>'p:'+x)); const n=lines.length; lines=lines.filter(l=>l.src!==m.src||keep.has(l.bridge)); if(lines.length!==n){ log.innerHTML=''; lines.forEach(l=>{ const c=renderRow(l,true); if(!l.he){ c.textContent=''; c.classList.remove('pending'); } }); persist(); try{ mqSnapshot(); }catch(_){} } return; }
   if(m.k==='pairs'&&Array.isArray(m.items)){ applyPairs(m.items, m.src||'tool'); return; }
   if(m.k==='mirror'&&Array.isArray(m.items)){ if(m.src==='api'&&lines.some(l=>/^c\d+$/.test(l.bridge||''))){ lines=lines.filter(l=>!/^c\d+$/.test(l.bridge||'')); log.innerHTML=''; lines.forEach(l=>renderRow(l,true)); persist(); } applyMirror(m.items); return; }
 }
 // translations the Claude app saved (save_translation tool -> lecture.jsonl -> file-bridge): English and Hebrew side by side
 function applyPairs(items, src){
-  let redraw=false;
-  if(running){ try{ toggle.click(); }catch(_){} }
+  let redraw=false; bridgeMode=true;
   document.body.classList.remove('mirror');
   if(lines.some(l=>l.src!==src)){ lines=lines.filter(l=>l.src===src); log.innerHTML=''; lines.forEach(l=>{ const c=renderRow(l,true); if(!l.he){ c.textContent=''; c.classList.remove('pending'); } }); persist(); }
   for(const it of items){
@@ -553,8 +553,8 @@ function build(){
   rec.onstart=()=>setStatus('מאזין ('+rec.lang+')','on');
   rec.onresult=e=>{
     let interim='';
-    for(let i=e.resultIndex;i<e.results.length;i++){ const r=e.results[i]; if(r.isFinal) addLine(r[0].transcript); else interim+=r[0].transcript; }
-    showLive(interim);
+    for(let i=e.resultIndex;i<e.results.length;i++){ const r=e.results[i]; if(r.isFinal){ if(bridgeMode) micTail=(micTail+' '+r[0].transcript).trim().slice(-400); else addLine(r[0].transcript); } else interim+=r[0].transcript; }
+    showLive(bridgeMode ? (micTail+' '+interim).trim().slice(-400) : interim);
   };
   rec.onerror=e=>{
     if(e.error==='no-speech'||e.error==='aborted') return;
