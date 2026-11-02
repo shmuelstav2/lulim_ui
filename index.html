@@ -162,11 +162,24 @@ function startMq(){
   try{ if(mq) mq.end(true); }catch(_){}
   const url=MQ_BROKERS[mqIdx%MQ_BROKERS.length];
   mq=mqtt.connect(url,{clientId:'lt-rec-'+Math.random().toString(36).slice(2,10),keepalive:30,reconnectPeriod:0,connectTimeout:8000});
-  mq.on('connect',()=>{ mqOk=true; paintViewLink(); mqSnapshot(); if(!mqSnapTimer) mqSnapTimer=setInterval(()=>{ if(running||dirty.size) mqSnapshot(); },8000); });
+  mq.on('message',onBridgeMsg);
+  mq.on('connect',()=>{ mqOk=true; try{ mq.subscribe(MQ_ROOT+'/in/+',{qos:0}); }catch(_){} paintViewLink(); mqSnapshot(); if(!mqSnapTimer) mqSnapTimer=setInterval(()=>{ if(running||dirty.size) mqSnapshot(); },8000); });
   const down=()=>{ if(mqOk===false&&mq&&!mq.connected){ /* already handled */ } mqOk=false; paintViewLink(); mqIdx++; setTimeout(startMq,3000); };
   mq.on('close',down); mq.on('error',()=>{}); mq.on('offline',down);
 }
 startMq();
+setInterval(paintViewLink,10000);
+// ---- bridge from the Claude desktop app: a helper on the Mac reads the app's transcript and sends finished sentences here ----
+var bridgeSeen=new Set(), bridgeAt=0;
+function onBridgeMsg(topic,payload){
+  if(topic!==MQ_ROOT+'/in/'+session) return;
+  let m; try{ m=JSON.parse(payload.toString()); }catch(_){ return; }
+  bridgeAt=Date.now(); paintViewLink();
+  if(m.k==='live'){ if(!running) showLive(m.text||''); return; }
+  if(m.k!=='in'||!(m.text||m.tr)||bridgeSeen.has(m.id)) return; bridgeSeen.add(m.id);
+  bridgeSeen.add(m.id); if(lines.some(l=>l.bridge===m.id)) return;
+  addLineWithTranslation(String(m.text||'').trim(), (m.tr||'').trim()); try{ lines[lines.length-1].bridge=m.id; persist(); }catch(_){}
+}
 // lines are batched: one message every ~8s (the free channel rate-limits bursts)
 function broadcast(obj){
   peerSend(obj);
@@ -182,7 +195,7 @@ function flushBroadcast(){
 function paintViewLink(){
   const el=$('viewLink'); if(!el) return;
   el.href=VIEW_URL(); el.textContent=VIEW_URL();
-  $('bcastState').textContent = (mqOk?'· ערוץ שידור פעיל ':'· ערוץ שידור מתחבר… ') + (peerState?'· '+peerState:'');
+  $('bcastState').textContent = (mqOk?'· ערוץ שידור פעיל ':'· ערוץ שידור מתחבר… ') + (peerState?'· '+peerState+' ':'') + (Date.now()-bridgeAt<20000?'· גשר מקלוד מחובר':'');
 }
 function newSession(){ const next=Math.random().toString(36).slice(2,8)+Date.now().toString(36).slice(-3); const prev=session; session=next; try{ localStorage.setItem('lt-session',session); }catch(_){} paintViewLink(); registerSession();
   mqPub(MQ_ROOT+'/s/'+prev,{k:'session',s:session,title:''}); mqSnapshot();
