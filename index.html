@@ -191,12 +191,13 @@ function applyMirror(items){
     if(it.role!=='claude') continue;
     const isHe=true; const en=isHe?'':it.text, he=isHe?it.text:'';
     const cur=lines.find(l=>l.bridge===it.id);
-    if(cur){ if(cur.en!==en||cur.he!==he){ cur.en=en; cur.he=he; changed=true; broadcast({k:'line',id:cur.id,t:cur.t,en,he}); } continue; }
+    if(cur){ if(cur.seq!==it.seq){ cur.seq=it.seq; changed=true; } if(cur.en!==en||cur.he!==he){ cur.en=en; cur.he=he; changed=true; broadcast({k:'line',id:cur.id,t:cur.t,en,he}); } continue; }
     const at=lines.findIndex(l=>(l.seq||0)>it.seq); const entry={id:Date.now()*100+(it.seq%100),t:it.t||now(),en,he,bridge:it.id,seq:it.seq};
     if(at<0) lines.push(entry); else lines.splice(at,0,entry);
     changed=true; broadcast({k:'line',id:entry.id,t:entry.t,en,he});
   }
   if(!changed) return;
+  lines.sort((a,b)=>(a.seq||0)-(b.seq||0));
   log.innerHTML=''; for(const l of lines){ const c=renderRow(l,true); if(l.en&&!l.he){ c.textContent=''; c.classList.remove('pending'); } }
   persist(); sync(false); try{ mqSnapshot(); }catch(_){}
 }
