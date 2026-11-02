@@ -59,6 +59,7 @@
   .cols span{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:500}
   .cols .en{direction:ltr;text-align:left;font-family:var(--eng)}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:2px 32px;padding:14px 22px;border-bottom:1px solid var(--line)}
+  .row.prov{opacity:.62;font-style:italic} /* live from the mic, replaced by Claude's text when it arrives */
   .row time{grid-column:1/-1;font-family:var(--mono);font-size:11px;color:var(--muted);direction:ltr;text-align:right;font-variant-numeric:tabular-nums}
   .cell{font-size:19px;line-height:1.55;min-width:0;overflow-wrap:anywhere}
   .cell.en{direction:ltr;text-align:left;font-family:var(--eng);color:var(--en)}
@@ -156,7 +157,7 @@ const MQ_BROKERS=['wss://broker.hivemq.com:8884/mqtt','wss://broker.emqx.io:8084
 const MQ_ROOT='lt7f3a9c';
 function mqPub(topic,obj,retain){ try{ if(mq&&mqOk) mq.publish(topic,JSON.stringify(obj),{qos:0,retain:!!retain}); }catch(_){} }
 function mqSnapshot(){ // retained snapshot: late joiners get the whole lecture at once
-  const ls=lines.slice(-300).map(l=>({id:l.id,t:l.t,en:l.en,he:l.he}));
+  const ls=lines.slice(-300).map(l=>({id:l.id,t:l.t,en:l.en,he:l.he,prov:(l.src==='mic'&&bridgeMode)?1:0}));
   mqPub(MQ_ROOT+'/state/'+session,{k:'state',session:session,title:getTitle(),lines:ls,summary:lastSummary||null,at:Date.now()},true);
   mqPub(MQ_ROOT+'/live',{k:'live',s:session,title:getTitle(),at:Date.now()},true);
 }
@@ -185,10 +186,12 @@ function onBridgeMsg(topic,payload){
   if(m.k==='mirror'&&Array.isArray(m.items)){ if(m.src==='api'&&lines.some(l=>/^c\d+$/.test(l.bridge||''))){ lines=lines.filter(l=>!/^c\d+$/.test(l.bridge||'')); log.innerHTML=''; lines.forEach(l=>renderRow(l,true)); persist(); } applyMirror(m.items); return; }
 }
 // translations the Claude app saved (save_translation tool -> lecture.jsonl -> file-bridge): English and Hebrew side by side
+var claudeTs=0;
 function applyPairs(items, src){
   let redraw=false; bridgeMode=true;
   document.body.classList.remove('mirror');
-  if(lines.some(l=>l.src!==src)){ lines=lines.filter(l=>l.src===src); log.innerHTML=''; lines.forEach(l=>renderRow(l,true)); persist(); }
+  for(const it of items) if(it.ts>claudeTs) claudeTs=it.ts;
+  const keepN=lines.length; lines=lines.filter(l=>l.src===src || (l.src==='mic' && l.id>claudeTs)); if(lines.length!==keepN) redraw=true;
   for(const it of items){
     const key='p:'+it.id; const ex=lines.find(l=>l.bridge===key);
     if(ex){ if(ex.he!==(it.he||'')||ex.en!==(it.en||'')){ ex.he=it.he||''; ex.en=it.en||''; redraw=true; broadcast({k:'line',id:ex.id,t:ex.t,en:ex.en,he:ex.he}); } continue; }
@@ -196,6 +199,7 @@ function applyPairs(items, src){
     renderRow(entry,true);
     broadcast({k:'line',id:entry.id,t:entry.t,en:entry.en,he:entry.he});
   }
+  { const ord=[...lines.filter(l=>l.src!=='mic'), ...lines.filter(l=>l.src==='mic')]; if(ord.some((l,i)=>l!==lines[i])){ lines=ord; redraw=true; } }
   if(redraw){ log.innerHTML=''; lines.forEach(l=>renderRow(l,true)); }
   persist(); sync(false); try{ mqSnapshot(); }catch(_){}
 }
@@ -458,7 +462,7 @@ function addLine(text){
   text=text.trim(); if(!text) return;
   const e=$('empty'); if(e) e.remove();
   const {src,tgt}=dir(); const srcIsEn=src.startsWith('en');
-  const t=now(); const entry={id:Date.now(),t,en:srcIsEn?text:'',he:srcIsEn?'':text}; lines.push(entry);
+  const t=now(); const entry={id:Date.now(),t,en:srcIsEn?text:'',he:srcIsEn?'':text,src:'mic'}; lines.push(entry);
   const trCell=renderRow(entry, srcIsEn); persist();
   sync(false); broadcast({k:'line',id:entry.id,t:entry.t,en:entry.en,he:entry.he});
   translate(text,src,tgt).then(x=>{ if(srcIsEn) entry.he=x; else entry.en=x; trCell.textContent=x; trCell.classList.remove('pending'); persist(); sync(false); broadcast({k:'line',id:entry.id,t:entry.t,en:entry.en,he:entry.he}); })
@@ -468,7 +472,7 @@ function renderRow(entry, srcIsEn){
   const e=$('empty'); if(e) e.remove();
   $('count').textContent=lines.length;
   if(lines.length===1) $('started').textContent=entry.t;
-  const row=document.createElement('div'); row.className='row';
+  const row=document.createElement('div'); row.className='row'+(entry.src==='mic'&&bridgeMode?' prov':'');
   row.innerHTML='<time></time><div class="cell en"></div><div class="cell he"></div>';
   row.querySelector('time').textContent=entry.t;
   const enCell=row.querySelector('.en'), heCell=row.querySelector('.he');
@@ -505,10 +509,10 @@ $('importFile').onchange=e=>{ const f=e.target.files[0]; if(!f) return; f.text()
 restore();
 
 // viewers mirror the speaker screen: the live (not yet final) line goes out too, at most every 600ms
-let liveOutT=null, liveOutLast=0;
+var liveOutT=null, liveOutLast=0;
 function pubLive(){ clearTimeout(liveOutT); const go=()=>{ liveOutLast=Date.now(); try{ mqPub(MQ_ROOT+'/s/'+session,{k:'livetext',en:liveEn.textContent||'',he:liveHe.textContent||''}); }catch(_){} }; const wait=600-(Date.now()-liveOutLast); if(wait<=0) go(); else liveOutT=setTimeout(go,wait); }
 // a fresh snapshot shortly after every change, so viewers see new and removed rows within ~2s
-let snapSoonT=null; function snapSoon(){ if(snapSoonT) return; snapSoonT=setTimeout(()=>{ snapSoonT=null; try{ mqSnapshot(); }catch(_){} },1500); }
+var snapSoonT=null; function snapSoon(){ if(snapSoonT) return; snapSoonT=setTimeout(()=>{ snapSoonT=null; try{ mqSnapshot(); }catch(_){} },1500); }
 function showLive(text){
   const srcIsEn=dir().src.startsWith('en');
   (srcIsEn?liveEn:liveHe).textContent=text;
@@ -568,8 +572,8 @@ function build(){
   rec.onstart=()=>setStatus('מאזין ('+rec.lang+')','on');
   rec.onresult=e=>{
     let interim='';
-    for(let i=e.resultIndex;i<e.results.length;i++){ const r=e.results[i]; if(r.isFinal){ if(bridgeMode) micTail=(micTail+' '+r[0].transcript).trim().slice(-400); else bufferFinal(r[0].transcript); } else interim+=r[0].transcript; }
-    showLive(bridgeMode ? (micTail+' '+interim).trim().slice(-400) : (sentBuf+' '+interim).trim());
+    for(let i=e.resultIndex;i<e.results.length;i++){ const r=e.results[i]; if(r.isFinal){ if(bridgeMode) micTail=(micTail+' '+r[0].transcript).trim().slice(-400); bufferFinal(r[0].transcript); } else interim+=r[0].transcript; }
+    showLive((sentBuf+' '+interim).trim());
   };
   rec.onerror=e=>{
     if(e.error==='no-speech'||e.error==='aborted') return;
