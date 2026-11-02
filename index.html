@@ -87,6 +87,9 @@
   }
   @media (prefers-reduced-motion:no-preference){ .row{animation:in .25s ease-out} }
   @keyframes in{from{opacity:.3;transform:translateY(4px)}to{opacity:1;transform:none}}
+body.mirror .row .en,body.mirror .cols .en{display:none}
+body.mirror .row,body.mirror .cols{grid-template-columns:1fr}
+body.mirror .row .he{white-space:pre-line}
 </style>
 </head>
 <body>
@@ -183,8 +186,10 @@ function applyMirror(items){
   if(running){ try{ toggle.click(); }catch(_){} }
   if(!lines.every(l=>l.bridge)){ lines=lines.filter(l=>l.bridge); }
   let changed=false;
+  document.body.classList.add('mirror');
   for(const it of items){
-    const isHe=it.role==='claude'; const en=isHe?'':it.text, he=isHe?it.text:'';
+    if(it.role!=='claude') continue;
+    const isHe=true; const en=isHe?'':it.text, he=isHe?it.text:'';
     const cur=lines.find(l=>l.bridge===it.id);
     if(cur){ if(cur.en!==en||cur.he!==he){ cur.en=en; cur.he=he; changed=true; broadcast({k:'line',id:cur.id,t:cur.t,en,he}); } continue; }
     const at=lines.findIndex(l=>(l.seq||0)>it.seq); const entry={id:Date.now()*100+(it.seq%100),t:it.t||now(),en,he,bridge:it.id,seq:it.seq};
