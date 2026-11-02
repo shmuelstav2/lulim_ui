@@ -184,15 +184,18 @@ function onBridgeMsg(topic,payload){
 }
 // translations the Claude app saved (save_translation tool -> lecture.jsonl -> file-bridge): English and Hebrew side by side
 function applyPairs(items, src){
+  let redraw=false;
   if(running){ try{ toggle.click(); }catch(_){} }
   document.body.classList.remove('mirror');
   if(lines.some(l=>l.src!==src)){ lines=lines.filter(l=>l.src===src); log.innerHTML=''; lines.forEach(l=>{ const c=renderRow(l,true); if(!l.he){ c.textContent=''; c.classList.remove('pending'); } }); persist(); }
   for(const it of items){
-    const key='p:'+it.id; if(lines.some(l=>l.bridge===key)) continue;
+    const key='p:'+it.id; const ex=lines.find(l=>l.bridge===key);
+    if(ex){ if(ex.he!==(it.he||'')||ex.en!==(it.en||'')){ ex.he=it.he||''; ex.en=it.en||''; redraw=true; broadcast({k:'line',id:ex.id,t:ex.t,en:ex.en,he:ex.he}); } continue; }
     const entry={id:Date.now()*100+lines.length%100,t:it.t||now(),en:it.en||'',he:it.he||'',bridge:key,src}; lines.push(entry);
     const c=renderRow(entry,true); if(entry.he){ c.textContent=entry.he; c.classList.remove('pending'); } else { c.textContent=''; c.classList.remove('pending'); }
     broadcast({k:'line',id:entry.id,t:entry.t,en:entry.en,he:entry.he});
   }
+  if(redraw){ log.innerHTML=''; lines.forEach(l=>{ const c=renderRow(l,true); if(!l.he){ c.textContent=''; c.classList.remove('pending'); } }); }
   persist(); sync(false); try{ mqSnapshot(); }catch(_){}
 }
 // mirror mode: the page shows exactly the Claude conversation, in order - your words in the English column, Claude's replies in the Hebrew column
