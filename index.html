@@ -371,7 +371,17 @@ function dir(){ const [src,tgt]=$('lang').value.split('|'); return {src,tgt}; }
 
 // translation: Google's free endpoints first (two different hosts), then the user's API key if one is set, with retries
 let gtxBlockedUntil=0;
+async function claudeTranslate(text, src, tgt){
+  const toHe=tgt==='he';
+  const ctx=lines.slice(-6,-1).map(l=>(toHe?l.en:l.he)||'').filter(Boolean).join(' ');
+  const sys='You are a live simultaneous interpreter for a lecture. Translate the new speech fragment from '+(toHe?'English to Hebrew':'Hebrew to English')+'. It comes from speech recognition, so fix obvious recognition errors, drop fillers (uh, um), keep names and terms accurate, and write natural fluent '+(toHe?'Hebrew':'English')+'. Output only the translation of the new fragment, nothing else.';
+  const r=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'content-type':'application/json','x-api-key':apiKey(),'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-sonnet-5-5',max_tokens:800,system:sys,messages:[{role:'user',content:(ctx?'Context (already translated, do not translate again): '+ctx+'\n\n':'')+'New fragment: '+text}]})});
+  if(!r.ok) throw new Error('claude '+r.status); const j=await r.json(); return (j.content||[]).map(c=>c.text||'').join('').trim();
+}
 async function translate(text, src, tgt){
+  // with a Claude key, Claude translates every sentence (same quality as the Claude app), with the last sentences as context
+  if(apiKey().startsWith('sk-ant-')){ try{ const x=await claudeTranslate(text,src,tgt); if(x) return x; }catch(_){} }
   const sl=src.slice(0,2);
   if(Date.now()>gtxBlockedUntil){
     const urls=[
@@ -539,6 +549,7 @@ function build(){
 toggle.onclick=async()=>{
   if(!SR && !azureReady()){ setStatus('הדפדפן הזה לא תומך בזיהוי דיבור — יש להשתמש ב-Chrome','err'); return; }
   if(running){ running=false; if(azRec){ try{ azRec.stopContinuousRecognitionAsync(); }catch(_){} } else if(rec){ rec.stop(); } if(micStream){ micStream.getTracks().forEach(t=>t.stop()); micStream=null; } toggle.textContent='התחל'; toggle.classList.remove('stop'); setStatus('לא מאזין'); return; }
+  document.body.classList.remove('mirror');
   setStatus('מבקש גישה למיקרופון… בחרי "אפשר בכל ביקור"');
   // keep the stream open for the whole session: Chrome then never asks again, even after a one-time allow
   try{
