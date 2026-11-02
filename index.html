@@ -179,7 +179,7 @@ function onBridgeMsg(topic,payload){
   let m; try{ m=JSON.parse(payload.toString()); }catch(_){ return; }
   bridgeAt=Date.now(); paintViewLink();
   if(m.k==='live'){ if(!running) showLive(m.text||''); return; }
-  if(m.k==='mirror'&&Array.isArray(m.items)){ applyMirror(m.items); return; }
+  if(m.k==='mirror'&&Array.isArray(m.items)){ if(m.src==='api'&&lines.some(l=>/^c\d+$/.test(l.bridge||''))){ lines=lines.filter(l=>!/^c\d+$/.test(l.bridge||'')); log.innerHTML=''; lines.forEach(l=>renderRow(l,true)); persist(); } applyMirror(m.items); return; }
 }
 // mirror mode: the page shows exactly the Claude conversation, in order - your words in the English column, Claude's replies in the Hebrew column
 function applyMirror(items){
