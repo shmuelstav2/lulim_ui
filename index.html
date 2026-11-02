@@ -480,7 +480,7 @@ function renderRow(entry, srcIsEn){
   return trCell;
 }
 // everything is kept in this browser, so a refresh never loses the transcript
-function persist(){ try{ localStorage.setItem('lt-lines',JSON.stringify(lines)); }catch(_){} }
+function persist(){ try{ localStorage.setItem('lt-lines',JSON.stringify(lines)); }catch(_){} snapSoon(); }
 function restore(){
   let saved=[]; try{ saved=JSON.parse(localStorage.getItem('lt-lines')||'[]'); }catch(_){}
   if(!Array.isArray(saved)||!saved.length) return;
@@ -504,12 +504,18 @@ $('importBtn').onclick=()=>$('importFile').click();
 $('importFile').onchange=e=>{ const f=e.target.files[0]; if(!f) return; f.text().then(importText); e.target.value=''; };
 restore();
 
+// viewers mirror the speaker screen: the live (not yet final) line goes out too, at most every 600ms
+let liveOutT=null, liveOutLast=0;
+function pubLive(){ clearTimeout(liveOutT); const go=()=>{ liveOutLast=Date.now(); try{ mqPub(MQ_ROOT+'/s/'+session,{k:'livetext',en:liveEn.textContent||'',he:liveHe.textContent||''}); }catch(_){} }; const wait=600-(Date.now()-liveOutLast); if(wait<=0) go(); else liveOutT=setTimeout(go,wait); }
+// a fresh snapshot shortly after every change, so viewers see new and removed rows within ~2s
+let snapSoonT=null; function snapSoon(){ if(snapSoonT) return; snapSoonT=setTimeout(()=>{ snapSoonT=null; try{ mqSnapshot(); }catch(_){} },1500); }
 function showLive(text){
   const srcIsEn=dir().src.startsWith('en');
   (srcIsEn?liveEn:liveHe).textContent=text;
   clearTimeout(liveTimer);
   if(text.length>12){ liveTimer=setTimeout(()=>translate(text,dir().src,dir().tgt).then(x=>{ (srcIsEn?liveHe:liveEn).textContent=x; }).catch(()=>{}),700); }
   if(!text){ liveEn.textContent=''; liveHe.textContent=''; }
+  pubLive();
 }
 
 // ---- Azure Speech (Microsoft): continuous recognition in whole sentences + built-in translation. Filled in once the resource exists. ----
@@ -537,7 +543,7 @@ function buildAzure(){
   azRec.sessionStarted=()=>setStatus('מאזין (Azure · '+src+')','on');
   azRec.sessionStopped=()=>{ if(running){ try{ azRec.startContinuousRecognitionAsync(); }catch(_){} } else setStatus('לא מאזין'); };
 }
-function showLiveBoth(a,b){ const srcIsEn=dir().src.startsWith('en'); (srcIsEn?liveEn:liveHe).textContent=a; (srcIsEn?liveHe:liveEn).textContent=b; }
+function showLiveBoth(a,b){ const srcIsEn=dir().src.startsWith('en'); (srcIsEn?liveEn:liveHe).textContent=a; (srcIsEn?liveHe:liveEn).textContent=b; pubLive(); }
 function addLineWithTranslation(text, tr){
   const e=$('empty'); if(e) e.remove();
   const srcIsEn=dir().src.startsWith('en');

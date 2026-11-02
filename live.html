@@ -119,14 +119,16 @@
   const lines=new Map(); let lastId=null, summary=null, failures=0, paintedCount=0;
   function setTitle(t){ if(!t) return; $('h1').firstChild.textContent=t; document.title=t+' — תמלול חי'; }
   const esc=s=>String(s==null?'':s);
+  function showLiveRow(en,he){ const log=$('log'); let r=$('liveRow'); if(!en&&!he){ if(r) r.remove(); return; } if(!r){ r=document.createElement('div'); r.id='liveRow'; r.className='row'; r.style.cssText='color:#b7651f;font-style:italic;opacity:.9'; r.innerHTML='<time></time><div class="cell en"></div><div class="cell he"></div>'; } const e=$('empty'); if(e) e.remove(); log.appendChild(r); r.querySelector('.en').textContent=en; r.querySelector('.he').textContent=he; const nearBottom=(document.body.scrollHeight-window.scrollY-window.innerHeight)<260; if(nearBottom) window.scrollTo({top:document.body.scrollHeight}); }
   function paint(){
     const arr=[...lines.values()].sort((a,b)=>a.id-b.id);
     const log=$('log');
+    for(const row of [...log.querySelectorAll('.row[data-id]')]) if(!lines.has(+row.dataset.id)) row.remove();
     if(!arr.length){ return; }
     const e=$('empty'); if(e) e.remove();
     for(const l of arr){
       let row=log.querySelector('[data-id="'+l.id+'"]');
-      if(!row){ row=document.createElement('div'); row.className='row'; row.dataset.id=l.id; row.innerHTML='<time></time><div class="cell en"></div><div class="cell he"></div>'; row.querySelector('time').textContent=l.t; log.appendChild(row); }
+      if(!row){ row=document.createElement('div'); row.className='row'; row.dataset.id=l.id; row.innerHTML='<time></time><div class="cell en"></div><div class="cell he"></div>'; row.querySelector('time').textContent=l.t; const lr=$('liveRow'); if(lr) log.insertBefore(row,lr); else log.appendChild(row); }
       row.querySelector('.en').textContent=esc(l.en); row.querySelector('.he').textContent=esc(l.he);
     }
     $('count').textContent=arr.length;
@@ -158,11 +160,12 @@
     if(!d||typeof d!=='object') return;
     const sizeBefore=lines.size;
     if(d.k==='state'||d.k==='session'){ if(d.session||d.s){ const ns=d.session||d.s; if(ns!==session && /^[a-z0-9]{6,12}$/.test(ns)) switchSession(ns); } if(d.k==='session'){ setTitle(d.title||''); return; } }
-    if(d.k==='state'){ if(d.title) setTitle(d.title); for(const l of (d.lines||[])){ if(l&&l.id) lines.set(l.id,{id:l.id,t:l.t||'',en:l.en||'',he:l.he||''}); } if(d.summary&&d.summary.he&&(!summary||(d.summary.count||0)>=(summary.count||0))) summary=d.summary; }
+    if(d.k==='state'){ if(d.title) setTitle(d.title); if(Array.isArray(d.lines) && d.lines.length<300){ const keep=new Set(d.lines.map(l=>l&&l.id)); for(const id of [...lines.keys()]) if(!keep.has(id)) lines.delete(id); } for(const l of (d.lines||[])){ if(l&&l.id) lines.set(l.id,{id:l.id,t:l.t||'',en:l.en||'',he:l.he||''}); } if(d.summary&&d.summary.he&&(!summary||(d.summary.count||0)>=(summary.count||0))) summary=d.summary; }
     else if(d.k==='line'&&d.id){ lines.set(d.id,{id:d.id,t:d.t||'',en:d.en||'',he:d.he||''}); }
     else if(d.k==='lines'&&Array.isArray(d.items)){ for(const l of d.items){ if(l&&l.id) lines.set(l.id,{id:l.id,t:l.t||'',en:l.en||'',he:l.he||''}); } }
     else if(d.k==='sum'&&d.he){ if(!summary||(d.count||0)>=(summary.count||0)) summary=d; }
     else if(d.k==='meta'&&d.title){ setTitle(d.title); }
+    else if(d.k==='livetext'){ showLiveRow(d.en||'',d.he||''); return; }
     else if(d.k==='redirect'&&d.s&&/^[a-z0-9]{6,12}$/.test(d.s)){ switchSession(d.s); return; }
     else if(d.k==='clear'){ lines.clear(); summary=null; $('log').innerHTML=''; }
     $('updated').textContent=new Date().toTimeString().slice(0,5);
