@@ -179,6 +179,7 @@ function onBridgeMsg(topic,payload){
   let m; try{ m=JSON.parse(payload.toString()); }catch(_){ return; }
   bridgeAt=Date.now(); paintViewLink();
   if(m.k==='live'){ if(!running) showLive(m.text||''); return; }
+  if(m.k==='pairs-ids'&&Array.isArray(m.ids)){ const keep=new Set(m.ids.map(x=>'p:'+x)); const n=lines.length; lines=lines.filter(l=>l.src!==m.src||keep.has(l.bridge)); if(lines.length!==n){ log.innerHTML=''; lines.forEach(l=>{ const c=renderRow(l,true); if(!l.he){ c.textContent=''; c.classList.remove('pending'); } }); persist(); try{ mqSnapshot(); }catch(_){} } return; }
   if(m.k==='pairs'&&Array.isArray(m.items)){ applyPairs(m.items, m.src||'tool'); return; }
   if(m.k==='mirror'&&Array.isArray(m.items)){ if(m.src==='api'&&lines.some(l=>/^c\d+$/.test(l.bridge||''))){ lines=lines.filter(l=>!/^c\d+$/.test(l.bridge||'')); log.innerHTML=''; lines.forEach(l=>renderRow(l,true)); persist(); } applyMirror(m.items); return; }
 }
